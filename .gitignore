@@ -197,7 +197,7 @@ config/local_*.yaml
 config/local_*.yml
 
 # PDF files (documentation might be large)
-*.pdf
+# *.pdf
 
 # Service account keys (security)
 *service-account*.json
