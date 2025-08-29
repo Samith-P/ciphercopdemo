@@ -1,0 +1,13 @@
+weights:
+  gemini: 0.4
+  vision_brand: 0.4
+  heuristics: 0.2
+
+thresholds:
+  clone: 60
+  suspicious: 30
+
+limits:
+  max_html_chars: 20000
+  screenshot_timeout_ms: 15000
+  nav_timeout_ms: 15000

@@ -1,0 +1,10 @@
+Flask==3.0.3
+google-generativeai==0.7.2
+google-cloud-vision==3.7.4
+playwright==1.46.0
+tldextract==5.1.2
+python-dotenv==1.0.1
+beautifulsoup4==4.12.3
+pydantic==2.8.2
+PyYAML==6.0.2
+idna==3.7
