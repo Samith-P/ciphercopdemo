@@ -1,60 +1,191 @@
 import React, { useState } from 'react';
-import { Copy, Search, Globe, AlertTriangle, CheckCircle, TrendingUp, Users, Database, Eye } from 'lucide-react';
+import { Copy, Search, Globe, AlertTriangle, CheckCircle, TrendingUp, Users, Upload, Eye, FileImage, X } from 'lucide-react';
 
 const ClonePage = () => {
   const [url, setUrl] = useState('');
-  const [domain, setDomain] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
   const [scanResult, setScanResult] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
+
+  // Helper function to extract and clean explanation text
+  const extractExplanation = (explanation) => {
+    if (!explanation) return '';
+    
+    // Try to extract JSON and get the explanation field
+    try {
+      // Remove code fences if present
+      let cleanText = explanation.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      
+      // Try to find JSON object
+      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return parsed.explanation || cleanText;
+      }
+    } catch (e) {
+      // If parsing fails, return the original text cleaned up
+    }
+    
+    // Clean up the text by removing incomplete JSON
+    return explanation.replace(/```json\s*/g, '').replace(/```\s*/g, '').replace(/\{[\s\S]*$/, '').trim();
+  };
+
+  // Helper function to extract suspected brand from explanation
+  const extractSuspectedBrand = (explanation) => {
+    if (!explanation) return '';
+    
+    try {
+      // Remove code fences if present
+      let cleanText = explanation.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      
+      // Try to find JSON object
+      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return parsed.suspected_brand || '';
+      }
+    } catch (e) {
+      // If parsing fails, return empty
+    }
+    
+    return '';
+  };
+
+  // Helper function to extract Gemini likelihood
+  const extractGeminiLikelihood = (explanation) => {
+    if (!explanation) return null;
+    
+    try {
+      // Remove code fences if present
+      let cleanText = explanation.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      
+      // Try to find JSON object
+      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return parsed.likelihood || null;
+      }
+    } catch (e) {
+      // If parsing fails, return null
+    }
+    
+    return null;
+  };
 
   const handleUrlCheck = async () => {
     if (!url) return;
     setIsScanning(true);
+    setScanResult(null);
     
-    setTimeout(() => {
+    try {
+      const response = await fetch('http://localhost:5000/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setScanResult({
+          type: 'url',
+          target: url,
+          decision: data.decision,
+          score: data.score,
+          advice: data.advice,
+          explanation: data.explanation,
+          signals: data.signals,
+          breakdown: data.breakdown,
+          details: {
+            lastChecked: new Date().toLocaleString()
+          }
+        });
+      } else {
+        throw new Error(data.error || 'Analysis failed');
+      }
+    } catch (error) {
+      console.error('URL analysis error:', error);
       setScanResult({
         type: 'url',
         target: url,
-        isClone: Math.random() > 0.6,
-        similarity: Math.floor(Math.random() * 40 + 60),
+        error: error.message,
         details: {
-          originalSite: 'amazon.com',
-          cloneIndicators: Math.floor(Math.random() * 5),
-          riskScore: Math.floor(Math.random() * 100),
-          registrationDate: '2024-08-20',
           lastChecked: new Date().toLocaleString()
         }
       });
+    } finally {
       setIsScanning(false);
-    }, 2000);
+    }
   };
 
-  const handleDomainCheck = async () => {
-    if (!domain) return;
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file && (file.type.startsWith('image/') || file.type === 'application/pdf')) {
+      setSelectedFile(file);
+    } else {
+      alert('Please select an image file (PNG, JPG, JPEG) or PDF');
+    }
+  };
+
+  const handleScreenshotAnalysis = async () => {
+    if (!selectedFile) return;
     setIsScanning(true);
+    setScanResult(null);
     
-    setTimeout(() => {
+    try {
+      const formData = new FormData();
+      formData.append('screenshot', selectedFile);
+      
+      const response = await fetch('http://localhost:5000/analyze', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setScanResult({
+          type: 'screenshot',
+          target: selectedFile.name,
+          decision: data.decision,
+          score: data.score,
+          advice: data.advice,
+          explanation: data.explanation,
+          signals: data.signals,
+          breakdown: data.breakdown,
+          details: {
+            fileSize: (selectedFile.size / 1024).toFixed(2) + ' KB',
+            lastChecked: new Date().toLocaleString()
+          }
+        });
+      } else {
+        throw new Error(data.error || 'Analysis failed');
+      }
+    } catch (error) {
+      console.error('Screenshot analysis error:', error);
       setScanResult({
-        type: 'domain',
-        target: domain,
-        isClone: Math.random() > 0.5,
-        similarity: Math.floor(Math.random() * 30 + 70),
+        type: 'screenshot',
+        target: selectedFile.name,
+        error: error.message,
         details: {
-          suspiciousDomains: Math.floor(Math.random() * 10 + 1),
-          typosquatting: Math.random() > 0.7,
-          phishingRisk: Math.floor(Math.random() * 100),
-          dnsRecords: 'Analyzed',
           lastChecked: new Date().toLocaleString()
         }
       });
+    } finally {
       setIsScanning(false);
-    }, 2000);
+    }
+  };
+
+  const removeSelectedFile = () => {
+    setSelectedFile(null);
   };
 
   const stats = [
-    { icon: Eye, label: 'Sites Monitored', value: '2.8M+', color: 'text-blue-400' },
+    { icon: Eye, label: 'Sites Analyzed', value: '2.8M+', color: 'text-blue-400' },
     { icon: Copy, label: 'Clones Detected', value: '156K', color: 'text-red-400' },
-    { icon: Database, label: 'Domain Database', value: '890M+', color: 'text-green-400' },
+    { icon: FileImage, label: 'Screenshots Processed', value: '890K+', color: 'text-green-400' },
     { icon: TrendingUp, label: 'Detection Accuracy', value: '97.3%', color: 'text-purple-400' }
   ];
 
@@ -141,37 +272,60 @@ const ClonePage = () => {
                 ) : (
                   <Search />
                 )}
-                {isScanning ? 'Checking...' : 'Check for Clones'}
+                {isScanning ? 'Analyzing...' : 'Analyze URL'}
               </button>
             </div>
           </div>
 
-          {/* Domain Monitor */}
+          {/* Screenshot Upload */}
           <div className="scan-card animate-slide-up" style={{ animationDelay: '0.3s' }}>
             <div className="scan-header">
-              <Database className="scan-icon" />
-              <h3>Domain Monitor</h3>
+              <FileImage className="scan-icon" />
+              <h3>Screenshot Analysis</h3>
             </div>
             <div className="scan-content">
-              <input
-                type="text"
-                placeholder="Enter domain name to monitor (e.g., example.com)"
-                value={domain}
-                onChange={(e) => setDomain(e.target.value)}
-                className="scan-input"
-              />
-              <button 
-                onClick={handleDomainCheck}
-                disabled={!domain || isScanning}
-                className="scan-button"
-              >
-                {isScanning ? (
-                  <Eye className="animate-pulse" />
-                ) : (
-                  <Search />
-                )}
-                {isScanning ? 'Monitoring...' : 'Monitor Domain'}
-              </button>
+              {!selectedFile ? (
+                <div className="file-upload-area">
+                  <input
+                    type="file"
+                    id="screenshot-input"
+                    onChange={handleFileSelect}
+                    className="file-input"
+                    accept="image/*,.pdf"
+                    style={{ display: 'none' }}
+                  />
+                  <label htmlFor="screenshot-input" className="file-upload-label">
+                    <Upload size={32} />
+                    <span>Upload Website Screenshot</span>
+                    <small>PNG, JPG, JPEG or PDF files supported</small>
+                  </label>
+                </div>
+              ) : (
+                <div className="selected-file">
+                  <div className="file-info">
+                    <FileImage size={24} />
+                    <div className="file-details">
+                      <span className="file-name">{selectedFile.name}</span>
+                      <span className="file-size">{(selectedFile.size / 1024).toFixed(2)} KB</span>
+                    </div>
+                    <button onClick={removeSelectedFile} className="remove-file">
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <button 
+                    onClick={handleScreenshotAnalysis}
+                    disabled={isScanning}
+                    className="scan-button"
+                  >
+                    {isScanning ? (
+                      <Copy className="animate-spin" />
+                    ) : (
+                      <Search />
+                    )}
+                    {isScanning ? 'Analyzing...' : 'Analyze Screenshot'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -183,74 +337,214 @@ const ClonePage = () => {
           <div className="results-card">
             <div className="results-header">
               <h3>Clone Analysis Results</h3>
-              <div className={`threat-badge ${scanResult.isClone ? 'threat-high' : 'threat-safe'}`}>
-                {scanResult.isClone ? <AlertTriangle size={16} /> : <CheckCircle size={16} />}
-                {scanResult.isClone ? 'CLONE DETECTED' : 'LEGITIMATE'}
-              </div>
+              {scanResult.error ? (
+                <div className="threat-badge threat-error">
+                  <AlertTriangle size={16} />
+                  ERROR
+                </div>
+              ) : (
+                <div className={`threat-badge threat-${scanResult.decision} ${
+                  extractGeminiLikelihood(scanResult.explanation) >= 90 ? 'high-confidence' : ''
+                }`}>
+                  {scanResult.decision === 'clone' ? <AlertTriangle size={16} /> : <CheckCircle size={16} />}
+                  {scanResult.decision?.toUpperCase() || 'ANALYZED'}
+                  {extractGeminiLikelihood(scanResult.explanation) >= 90 && (
+                    <span className="confidence-indicator">
+                      {extractGeminiLikelihood(scanResult.explanation)}% CONFIDENCE
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="results-content">
-              <div className="similarity-score">
-                <div className="similarity-label">Similarity Score</div>
-                <div className="similarity-bar">
-                  <div 
-                    className="similarity-fill" 
-                    style={{ 
-                      width: `${scanResult.similarity}%`,
-                      background: scanResult.similarity > 80 ? '#ef4444' : scanResult.similarity > 60 ? '#f59e0b' : '#10b981'
-                    }}
-                  ></div>
+              {scanResult.error ? (
+                <div className="error-message">
+                  <p>Analysis failed: {scanResult.error}</p>
                 </div>
-                <div className="similarity-percentage">{scanResult.similarity}%</div>
-              </div>
+              ) : (
+                <>
+                  {/* Risk Score */}
+                  <div className="risk-score-section">
+                    <div className="risk-score-header">
+                      <span className="risk-label">Risk Score</span>
+                      <span className="risk-value">{scanResult.score}/100</span>
+                    </div>
+                    <div className="risk-bar">
+                      <div 
+                        className="risk-fill" 
+                        style={{ 
+                          width: `${scanResult.score}%`,
+                          background: scanResult.score >= 60 ? '#ef4444' : scanResult.score >= 30 ? '#f59e0b' : '#10b981'
+                        }}
+                      ></div>
+                    </div>
+                    <div className="risk-advice">{scanResult.advice}</div>
+                  </div>
+
+                  {/* Gemini AI Highlights */}
+                  {scanResult.explanation && (
+                    <div className="gemini-highlights-section">
+                      <div className="gemini-header">
+                        <h4>🤖 AI Detection Results</h4>
+                      </div>
+                      <div className="gemini-stats">
+                        {extractGeminiLikelihood(scanResult.explanation) && (
+                          <div className="gemini-stat">
+                            <span className="gemini-stat-label">AI Confidence</span>
+                            <span className="gemini-stat-value">
+                              {extractGeminiLikelihood(scanResult.explanation)}%
+                            </span>
+                            <div className="gemini-stat-bar">
+                              <div 
+                                className="gemini-stat-fill"
+                                style={{ 
+                                  width: `${extractGeminiLikelihood(scanResult.explanation)}%`,
+                                  background: extractGeminiLikelihood(scanResult.explanation) >= 70 ? '#ef4444' : 
+                                           extractGeminiLikelihood(scanResult.explanation) >= 40 ? '#f59e0b' : '#10b981'
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+                        )}
+                        {extractSuspectedBrand(scanResult.explanation) && (
+                          <div className="gemini-stat">
+                            <span className="gemini-stat-label">Detected Brand</span>
+                            <span className="suspected-brand-tag">
+                              {extractSuspectedBrand(scanResult.explanation)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* AI Explanation */}
+                  {scanResult.explanation && (
+                    <div className="explanation-section">
+                      <h4>📝 Detailed Analysis</h4>
+                      <p>{extractExplanation(scanResult.explanation)}</p>
+                    </div>
+                  )}
+
+                  {/* Detection Breakdown */}
+                  {scanResult.breakdown && (
+                    <div className="breakdown-section">
+                      <h4>📊 Detection Breakdown</h4>
+                      <div className="breakdown-grid">
+                        {Object.entries(scanResult.breakdown).map(([key, value]) => (
+                          <div key={key} className="breakdown-item">
+                            <span className="breakdown-label">{key.replace('_', ' ').toUpperCase()}</span>
+                            <span className="breakdown-value">{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Detailed Signals */}
+                  {scanResult.signals && (
+                    <div className="signals-section">
+                      <h4>🔍 Detection Signals</h4>
+                      
+                      {/* Heuristics */}
+                      {scanResult.signals.heuristics && (
+                        <div className="signal-group">
+                          <h5>Heuristic Analysis</h5>
+                          <div className="signal-details">
+                            <div className="signal-item">
+                              <span>Risk Score:</span>
+                              <span>{scanResult.signals.heuristics.risk}/100</span>
+                            </div>
+                            <div className="signal-item">
+                              <span>Domain:</span>
+                              <span>{scanResult.signals.heuristics.host}</span>
+                            </div>
+                            {scanResult.signals.heuristics.signals && Object.keys(scanResult.signals.heuristics.signals).length > 0 && (
+                              <div className="signal-flags">
+                                <span>Flags:</span>
+                                <div className="flags-list">
+                                  {Object.entries(scanResult.signals.heuristics.signals).map(([flag, value]) => 
+                                    value && <span key={flag} className="flag">{flag.replace('_', ' ')}</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Vision Analysis */}
+                      {scanResult.signals.vision && (
+                        <div className="signal-group">
+                          <h5>Visual Analysis</h5>
+                          <div className="signal-details">
+                            {scanResult.signals.vision.logos && scanResult.signals.vision.logos.length > 0 && (
+                              <div className="signal-item">
+                                <span>Detected Brands:</span>
+                                <div className="detected-brands">
+                                  {scanResult.signals.vision.logos.map((logo, index) => (
+                                    <span key={index} className="brand-tag">
+                                      {logo.description} ({(logo.score * 100).toFixed(1)}%)
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {scanResult.signals.vision.text && (
+                              <div className="signal-item">
+                                <span>Extracted Text:</span>
+                                <span className="extracted-text">{scanResult.signals.vision.text.substring(0, 200)}...</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Gemini Analysis */}
+                      {scanResult.signals.gemini && (
+                        <div className="signal-group">
+                          <h5>AI Analysis</h5>
+                          <div className="signal-details">
+                            <div className="signal-item">
+                              <span>Likelihood:</span>
+                              <span>{scanResult.signals.gemini.likelihood}%</span>
+                            </div>
+                            {/* Show suspected brand from either the main field or parsed explanation */}
+                            {(scanResult.signals.gemini.suspected_brand || 
+                              (scanResult.explanation && extractSuspectedBrand(scanResult.explanation))) && (
+                              <div className="signal-item">
+                                <span>Suspected Brand:</span>
+                                <span className="brand-tag">
+                                  {scanResult.signals.gemini.suspected_brand || 
+                                   extractSuspectedBrand(scanResult.explanation)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
               
               <div className="result-details">
                 <div className="detail-item">
                   <span className="detail-label">Target:</span>
                   <span className="detail-value">{scanResult.target}</span>
                 </div>
-                
-                {scanResult.type === 'url' && (
-                  <>
-                    <div className="detail-item">
-                      <span className="detail-label">Potential Original:</span>
-                      <span className="detail-value">{scanResult.details.originalSite}</span>
-                    </div>
-                    <div className="detail-item">
-                      <span className="detail-label">Clone Indicators:</span>
-                      <span className="detail-value">{scanResult.details.cloneIndicators}</span>
-                    </div>
-                    <div className="detail-item">
-                      <span className="detail-label">Risk Score:</span>
-                      <span className="detail-value">{scanResult.details.riskScore}/100</span>
-                    </div>
-                    <div className="detail-item">
-                      <span className="detail-label">Registration Date:</span>
-                      <span className="detail-value">{scanResult.details.registrationDate}</span>
-                    </div>
-                  </>
+                {scanResult.type === 'screenshot' && scanResult.details.fileSize && (
+                  <div className="detail-item">
+                    <span className="detail-label">File Size:</span>
+                    <span className="detail-value">{scanResult.details.fileSize}</span>
+                  </div>
                 )}
-                
-                {scanResult.type === 'domain' && (
-                  <>
-                    <div className="detail-item">
-                      <span className="detail-label">Suspicious Domains Found:</span>
-                      <span className="detail-value">{scanResult.details.suspiciousDomains}</span>
-                    </div>
-                    <div className="detail-item">
-                      <span className="detail-label">Typosquatting Risk:</span>
-                      <span className="detail-value">{scanResult.details.typosquatting ? 'High' : 'Low'}</span>
-                    </div>
-                    <div className="detail-item">
-                      <span className="detail-label">Phishing Risk:</span>
-                      <span className="detail-value">{scanResult.details.phishingRisk}/100</span>
-                    </div>
-                    <div className="detail-item">
-                      <span className="detail-label">DNS Analysis:</span>
-                      <span className="detail-value">{scanResult.details.dnsRecords}</span>
-                    </div>
-                  </>
-                )}
+                <div className="detail-item">
+                  <span className="detail-label">Analysis Type:</span>
+                  <span className="detail-value">{scanResult.type === 'screenshot' ? 'Screenshot Analysis' : 'URL Analysis'}</span>
+                </div>
               </div>
+              
               <div className="scan-timestamp">
                 Last checked: {scanResult.details.lastChecked}
               </div>

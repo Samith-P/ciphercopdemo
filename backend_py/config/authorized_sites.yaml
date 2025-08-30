@@ -1,0 +1,12 @@
+brands:
+  - name: Google
+    domains: ["google.com", "accounts.google.com"]
+    keywords: ["Google", "Gmail", "Sign in"]
+
+  - name: PayPal
+    domains: ["paypal.com"]
+    keywords: ["PayPal", "Log in", "Send & Request"]
+
+  - name: Microsoft
+    domains: ["microsoft.com", "login.live.com"]
+    keywords: ["Microsoft", "Outlook", "Sign in"]

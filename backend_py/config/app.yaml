@@ -1,0 +1,55 @@
+# ========================
+# CipherCop 2025 App Config
+# ========================
+
+# --- Known Brands & Allowed Domains ---
+brands:
+  - name: "Amazon.com"
+    domains:
+      - "amazon.com"
+      - "amazon.in"
+      - "amazon.co.uk"
+      - "amazon.de"
+      - "amazon.ca"
+  - name: "Google"
+    domains:
+      - "google.com"
+      - "gmail.com"
+      - "google.co.in"
+  - name: "Facebook"
+    domains:
+      - "facebook.com"
+      - "fb.com"
+      - "meta.com"
+  - name: "Microsoft"
+    domains:
+      - "microsoft.com"
+      - "live.com"
+      - "office.com"
+      - "outlook.com"
+  - name: "Apple"
+    domains:
+      - "apple.com"
+      - "icloud.com"
+
+# --- Risk Thresholds ---
+thresholds:
+  suspicious: 30    # Score ≥ 30 → suspicious
+  clone: 60         # Score ≥ 60 → confirmed phishing/clone
+
+# --- Weights for Signal Fusion ---
+# Adjust these to tune importance of each detector
+weights:
+  gemini: 0.45         # AI judgment (text + image)
+  vision_brand: 0.35   # Logo + visual match
+  heuristics: 0.20     # Domain risk & URL structure
+
+# --- Limits & Timeouts ---
+limits:
+  nav_timeout_ms: 15000      # 15 sec browser navigation timeout
+  text_extract_limit: 3000   # Max characters to extract from HTML text
+
+# --- Optional Logging ---
+logging:
+  level: "INFO"              # Options: DEBUG, INFO, WARNING, ERROR
+  save_artifacts: true       # Save screenshots & HTML in _artifacts/
