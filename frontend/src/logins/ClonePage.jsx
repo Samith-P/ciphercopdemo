@@ -1,17 +1,26 @@
 import React, { useState } from 'react';
-import { Copy, Search, Globe, AlertTriangle, CheckCircle, TrendingUp, Users, Upload, Eye, FileImage, X } from 'lucide-react';
+import { Copy, Search, Globe, AlertTriangle, CheckCircle, TrendingUp, Users, Upload, Eye, FileImage, X, Brain, Cpu } from 'lucide-react';
 
 const ClonePage = () => {
   const [url, setUrl] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [scanResult, setScanResult] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [analysisType, setAnalysisType] = useState('combined'); // 'ai', 'ml', 'combined'
 
-  // Helper function to extract and clean explanation text
+  // API Configuration
+  const API_ENDPOINTS = {
+    ai: 'http://localhost:5003/analyze',
+    ml: {
+      upload: 'http://localhost:5000/upload',
+      detect: 'http://localhost:5000/detect'
+    }
+  };
+
+  // Helper function to extract and clean explanation text from AI responses
   const extractExplanation = (explanation) => {
     if (!explanation) return '';
     
-    // Try to extract JSON and get the explanation field
     try {
       // Remove code fences if present
       let cleanText = explanation.replace(/```json\s*/g, '').replace(/```\s*/g, '');
@@ -30,146 +39,359 @@ const ClonePage = () => {
     return explanation.replace(/```json\s*/g, '').replace(/```\s*/g, '').replace(/\{[\s\S]*$/, '').trim();
   };
 
-  // Helper function to extract suspected brand from explanation
-  const extractSuspectedBrand = (explanation) => {
-    if (!explanation) return '';
-    
-    try {
-      // Remove code fences if present
-      let cleanText = explanation.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      
-      // Try to find JSON object
-      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return parsed.suspected_brand || '';
-      }
-    } catch (e) {
-      // If parsing fails, return empty
+  // Helper function to normalize ML response data structure
+  const normalizeMlResponse = (data) => {
+    // Handle both old and new response formats
+    if (data.result !== undefined) {
+      // New format from /detect endpoint
+      return {
+        result: data.result,
+        matched_brand: data.matched_brand,
+        confidence: data.confidence,
+        correct_domain: data.correct_domain,
+        detection_time: data.detection_time,
+        logo_extraction: data.logo_extraction,
+        error: data.error
+      };
+    } else if (data.isPhishing !== undefined) {
+      // Old format from /analyze endpoint  
+      return {
+        result: data.isPhishing ? 'Phishing' : 'Benign',
+        matched_brand: data.brand,
+        confidence: data.confidence,
+        correct_domain: data.legitUrl?.replace('https://', '').replace('http://', ''),
+        detection_time: null,
+        logo_extraction: null
+      };
     }
-    
-    return '';
+    return data;
   };
 
-  // Helper function to extract Gemini likelihood
-  const extractGeminiLikelihood = (explanation) => {
-    if (!explanation) return null;
-    
-    try {
-      // Remove code fences if present
-      let cleanText = explanation.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      
-      // Try to find JSON object
-      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return parsed.likelihood || null;
-      }
-    } catch (e) {
-      // If parsing fails, return null
-    }
-    
-    return null;
+  // Helper function to normalize AI response data structure
+  const normalizeAiResponse = (data) => {
+    return {
+      decision: data.decision,
+      score: data.score,
+      advice: data.advice,
+      explanation: data.explanation,
+      signals: data.signals
+    };
   };
 
+  // Main function to call both ML and AI services
+  const callBothServices = async (url, imageFile) => {
+    const results = {
+      ml: { status: 'pending', data: null, error: null },
+      ai: { status: 'pending', data: null, error: null }
+    };
+
+    // Call ML Service (Phishpedia) first
+    try {
+      console.log('Calling ML Service...');
+      
+      if (imageFile) {
+        // Step 1: Upload the image
+        const uploadFormData = new FormData();
+        uploadFormData.append('image', imageFile);
+        
+        const uploadResponse = await fetch(API_ENDPOINTS.ml.upload, {
+          method: 'POST',
+          body: uploadFormData
+        });
+        
+        if (!uploadResponse.ok) {
+          throw new Error(`Upload failed: HTTP ${uploadResponse.status}`);
+        }
+        
+        const uploadData = await uploadResponse.json();
+        if (!uploadData.success) {
+          throw new Error(uploadData.error || 'Image upload failed');
+        }
+        
+        // Step 2: Call detect with the uploaded image URL
+        const detectResponse = await fetch(API_ENDPOINTS.ml.detect, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: url || '',
+            imageUrl: uploadData.imageUrl
+          })
+        });
+
+        if (detectResponse.ok) {
+          const rawData = await detectResponse.json();
+          console.log('ML Raw Response:', rawData);
+          results.ml.data = normalizeMlResponse(rawData);
+          results.ml.status = 'completed';
+          console.log('ML Service completed successfully');
+        } else {
+          const errorData = await detectResponse.json();
+          results.ml.error = errorData.error || `HTTP ${detectResponse.status}`;
+          results.ml.status = 'failed';
+        }
+      } else {
+        // For URL-only analysis (ML service needs screenshot)
+        results.ml.error = 'Screenshot required for ML analysis';
+        results.ml.status = 'failed';
+      }
+    } catch (error) {
+      results.ml.error = error.message;
+      results.ml.status = 'failed';
+      console.log('ML Service failed:', error.message);
+    }
+
+    // Call AI Service (Gemini) second
+    try {
+      console.log('Calling AI Service...');
+      
+      let aiResponse;
+      if (imageFile) {
+        // For screenshot analysis
+        const formData = new FormData();
+        formData.append('screenshot', imageFile);
+        if (url && url.trim()) {
+          formData.append('url', url.trim());
+        }
+        
+        aiResponse = await fetch(API_ENDPOINTS.ai, {
+          method: 'POST',
+          body: formData
+        });
+      } else {
+        // For URL-only analysis
+        aiResponse = await fetch(API_ENDPOINTS.ai, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+      }
+
+      if (aiResponse.ok) {
+        const rawData = await aiResponse.json();
+        console.log('AI Raw Response:', rawData);
+        results.ai.data = normalizeAiResponse(rawData);
+        results.ai.status = 'completed';
+        console.log('AI Service completed successfully');
+      } else {
+        const errorData = await aiResponse.json();
+        results.ai.error = errorData.error || `HTTP ${aiResponse.status}`;
+        results.ai.status = 'failed';
+      }
+    } catch (error) {
+      results.ai.error = error.message;
+      results.ai.status = 'failed';
+      console.log('AI Service failed:', error.message);
+    }
+
+    return results;
+  };
+
+  // Handle URL analysis
   const handleUrlCheck = async () => {
     if (!url) return;
     setIsScanning(true);
     setScanResult(null);
     
     try {
-      const response = await fetch('http://localhost:5000/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url })
-      });
-
-      const data = await response.json();
-      
-      if (response.ok) {
+      if (analysisType === 'combined') {
+        // Call both ML and AI services
+        const results = await callBothServices(url, null);
         setScanResult({
           type: 'url',
           target: url,
-          decision: data.decision,
-          score: data.score,
-          advice: data.advice,
-          explanation: data.explanation,
-          signals: data.signals,
-          breakdown: data.breakdown,
-          details: {
-            lastChecked: new Date().toLocaleString()
-          }
+          analysisType,
+          data: results,
+          details: { lastChecked: new Date().toLocaleString() }
         });
       } else {
-        throw new Error(data.error || 'Analysis failed');
+        // Call single service
+        let response, data;
+        
+        if (analysisType === 'ml') {
+          // ML service requires screenshot for meaningful analysis
+          throw new Error('ML analysis requires a screenshot');
+        } else if (analysisType === 'ai') {
+          response = await fetch(API_ENDPOINTS.ai, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'AI analysis failed');
+          }
+          
+          data = normalizeAiResponse(await response.json());
+        }
+        
+        setScanResult({
+          type: 'url',
+          target: url,
+          analysisType,
+          data,
+          details: { lastChecked: new Date().toLocaleString() }
+        });
       }
     } catch (error) {
       console.error('URL analysis error:', error);
       setScanResult({
         type: 'url',
         target: url,
+        analysisType,
         error: error.message,
-        details: {
-          lastChecked: new Date().toLocaleString()
-        }
+        details: { lastChecked: new Date().toLocaleString() }
       });
     } finally {
       setIsScanning(false);
     }
   };
 
+  // File validation and selection handler
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
-    if (file && (file.type.startsWith('image/') || file.type === 'application/pdf')) {
-      setSelectedFile(file);
-    } else {
-      alert('Please select an image file (PNG, JPG, JPEG) or PDF');
+    if (!file) return;
+    
+    // Validate file type
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/bmp', 'application/pdf'];
+    if (!validTypes.includes(file.type)) {
+      alert('Please select a valid image file (PNG, JPG, JPEG, GIF, BMP) or PDF');
+      return;
+    }
+    
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      alert('File size must be less than 10MB');
+      return;
+    }
+    
+    setSelectedFile(file);
+  };
+
+  // Remove selected file
+  const removeSelectedFile = () => {
+    setSelectedFile(null);
+  };
+
+  // URL validation helper
+  const isValidUrl = (string) => {
+    try {
+      new URL(string);
+      return true;
+    } catch (_) {
+      return false;
     }
   };
 
+  // Handle URL input change with validation
+  const handleUrlChange = (e) => {
+    const newUrl = e.target.value;
+    setUrl(newUrl);
+  };
+
+  // Handle screenshot analysis
   const handleScreenshotAnalysis = async () => {
     if (!selectedFile) return;
     setIsScanning(true);
     setScanResult(null);
     
     try {
-      const formData = new FormData();
-      formData.append('screenshot', selectedFile);
-      
-      const response = await fetch('http://localhost:5000/analyze', {
-        method: 'POST',
-        body: formData
-      });
-
-      const data = await response.json();
-      
-      if (response.ok) {
+      if (analysisType === 'combined') {
+        // Call both services for screenshot analysis
+        const results = await callBothServices(url, selectedFile);
         setScanResult({
           type: 'screenshot',
           target: selectedFile.name,
-          decision: data.decision,
-          score: data.score,
-          advice: data.advice,
-          explanation: data.explanation,
-          signals: data.signals,
-          breakdown: data.breakdown,
+          analysisType,
+          data: results,
           details: {
             fileSize: (selectedFile.size / 1024).toFixed(2) + ' KB',
             lastChecked: new Date().toLocaleString()
           }
         });
       } else {
-        throw new Error(data.error || 'Analysis failed');
+        // Call single service
+        let data;
+        
+        if (analysisType === 'ml') {
+          // Use proper ML workflow: upload then detect
+          const uploadFormData = new FormData();
+          uploadFormData.append('image', selectedFile);
+          
+          const uploadResponse = await fetch(API_ENDPOINTS.ml.upload, {
+            method: 'POST',
+            body: uploadFormData
+          });
+          
+          if (!uploadResponse.ok) {
+            throw new Error(`Upload failed: HTTP ${uploadResponse.status}`);
+          }
+          
+          const uploadData = await uploadResponse.json();
+          if (!uploadData.success) {
+            throw new Error(uploadData.error || 'Image upload failed');
+          }
+          
+          // Call detect with the uploaded image URL
+          const detectResponse = await fetch(API_ENDPOINTS.ml.detect, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: url || '',
+              imageUrl: uploadData.imageUrl
+            })
+          });
+
+          if (!detectResponse.ok) {
+            const errorData = await detectResponse.json();
+            throw new Error(errorData.error || 'ML analysis failed');
+          }
+          
+          data = normalizeMlResponse(await detectResponse.json());
+          
+        } else if (analysisType === 'ai') {
+          // AI expects FormData
+          const formData = new FormData();
+          formData.append('screenshot', selectedFile);
+          
+          if (url && url.trim()) {
+            formData.append('url', url.trim());
+          }
+          
+          const response = await fetch(API_ENDPOINTS.ai, {
+            method: 'POST',
+            body: formData
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'AI analysis failed');
+          }
+          
+          data = normalizeAiResponse(await response.json());
+        }
+        
+        setScanResult({
+          type: 'screenshot',
+          target: selectedFile.name,
+          analysisType,
+          data,
+          details: {
+            fileSize: (selectedFile.size / 1024).toFixed(2) + ' KB',
+            lastChecked: new Date().toLocaleString()
+          }
+        });
       }
     } catch (error) {
       console.error('Screenshot analysis error:', error);
       setScanResult({
         type: 'screenshot',
         target: selectedFile.name,
+        analysisType,
         error: error.message,
         details: {
+          fileSize: (selectedFile.size / 1024).toFixed(2) + ' KB',
           lastChecked: new Date().toLocaleString()
         }
       });
@@ -178,8 +400,54 @@ const ClonePage = () => {
     }
   };
 
-  const removeSelectedFile = () => {
-    setSelectedFile(null);
+  // Helper functions for threat level display
+  const getThreatLevel = (scanResult) => {
+    if (scanResult.error) return 'threat-high';
+    
+    if (scanResult.analysisType === 'combined') {
+      const mlThreat = scanResult.data.ml.data?.result === 'Phishing';
+      const aiThreat = scanResult.data.ai.data?.decision === 'clone';
+      
+      if (mlThreat || aiThreat) return 'threat-high';
+      if (scanResult.data.ai.data?.decision === 'suspicious') return 'threat-medium';
+      return 'threat-low';
+    } else if (scanResult.analysisType === 'ml') {
+      return scanResult.data.result === 'Phishing' ? 'threat-high' : 'threat-low';
+    } else if (scanResult.analysisType === 'ai') {
+      if (scanResult.data.decision === 'clone') return 'threat-high';
+      if (scanResult.data.decision === 'suspicious') return 'threat-medium';
+      return 'threat-low';
+    }
+    
+    return 'threat-medium';
+  };
+
+  const getThreatIcon = (scanResult) => {
+    const level = getThreatLevel(scanResult);
+    if (level === 'threat-low') return <CheckCircle size={16} />;
+    return <AlertTriangle size={16} />;
+  };
+
+  const getThreatText = (scanResult) => {
+    if (scanResult.error) return 'ERROR';
+    
+    if (scanResult.analysisType === 'combined') {
+      const mlThreat = scanResult.data.ml.data?.result === 'Phishing';
+      const aiThreat = scanResult.data.ai.data?.decision === 'clone';
+      
+      if (mlThreat && aiThreat) return 'HIGH RISK - BOTH DETECTED';
+      if (mlThreat || aiThreat) return 'HIGH RISK - CLONE DETECTED';
+      if (scanResult.data.ai.data?.decision === 'suspicious') return 'MEDIUM RISK';
+      return 'LOW RISK';
+    } else if (scanResult.analysisType === 'ml') {
+      return scanResult.data.result === 'Phishing' ? 'CLONE DETECTED' : 'CLEAN';
+    } else if (scanResult.analysisType === 'ai') {
+      if (scanResult.data.decision === 'clone') return 'CLONE DETECTED';
+      if (scanResult.data.decision === 'suspicious') return 'SUSPICIOUS';
+      return 'CLEAN';
+    }
+    
+    return 'UNKNOWN';
   };
 
   const stats = [
@@ -247,6 +515,46 @@ const ClonePage = () => {
 
       {/* Scanning Tools */}
       <div className="scanning-section">
+        {/* Analysis Type Selector - Compact */}
+        <div className="analysis-selector-compact" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          marginBottom: '24px',
+          padding: '12px 16px',
+          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+          borderRadius: '8px',
+          border: '1px solid rgba(255, 255, 255, 0.1)'
+        }}>
+          <label htmlFor="analysis-type" style={{
+            color: '#e2e8f0',
+            fontSize: '14px',
+            fontWeight: '500',
+            minWidth: 'fit-content'
+          }}>Analysis Method:</label>
+          <select 
+            id="analysis-type"
+            value={analysisType} 
+            onChange={(e) => setAnalysisType(e.target.value)}
+            className="analysis-select"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '6px',
+              color: '#fff',
+              padding: '8px 12px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              outline: 'none',
+              minWidth: '200px'
+            }}
+          >
+            <option value="combined" style={{backgroundColor: '#1e293b', color: '#fff'}}>🔬 Combined (AI + ML)</option>
+            <option value="ai" style={{backgroundColor: '#1e293b', color: '#fff'}}>🧠 AI Only (Gemini)</option>
+            <option value="ml" style={{backgroundColor: '#1e293b', color: '#fff'}}>⚡ ML Only (Phishpedia)</option>
+          </select>
+        </div>
+
         <div className="scan-grid">
           {/* URL Clone Checker */}
           <div className="scan-card animate-slide-up" style={{ animationDelay: '0.2s' }}>
@@ -259,7 +567,7 @@ const ClonePage = () => {
                 type="url"
                 placeholder="Enter website URL to check for clones"
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={handleUrlChange}
                 className="scan-input"
               />
               <button 
@@ -322,7 +630,7 @@ const ClonePage = () => {
                     ) : (
                       <Search />
                     )}
-                    {isScanning ? 'Analyzing...' : 'Analyze Screenshot'}
+                    {isScanning ? 'Analyzing...' : url ? 'Analyze URL + Screenshot' : 'Analyze Screenshot'}
                   </button>
                 </div>
               )}
@@ -336,218 +644,227 @@ const ClonePage = () => {
         <div className="results-section animate-fade-in">
           <div className="results-card">
             <div className="results-header">
-              <h3>Clone Analysis Results</h3>
-              {scanResult.error ? (
-                <div className="threat-badge threat-error">
-                  <AlertTriangle size={16} />
-                  ERROR
-                </div>
-              ) : (
-                <div className={`threat-badge threat-${scanResult.decision} ${
-                  extractGeminiLikelihood(scanResult.explanation) >= 90 ? 'high-confidence' : ''
-                }`}>
-                  {scanResult.decision === 'clone' ? <AlertTriangle size={16} /> : <CheckCircle size={16} />}
-                  {scanResult.decision?.toUpperCase() || 'ANALYZED'}
-                  {extractGeminiLikelihood(scanResult.explanation) >= 90 && (
-                    <span className="confidence-indicator">
-                      {extractGeminiLikelihood(scanResult.explanation)}% CONFIDENCE
-                    </span>
-                  )}
-                </div>
-              )}
+              <h3>Analysis Results</h3>
+              <div className={`threat-badge ${getThreatLevel(scanResult)}`}>
+                {getThreatIcon(scanResult)}
+                {getThreatText(scanResult)}
+              </div>
             </div>
+            
             <div className="results-content">
               {scanResult.error ? (
                 <div className="error-message">
-                  <p>Analysis failed: {scanResult.error}</p>
+                  <AlertTriangle size={24} className="error-icon" />
+                  <div>
+                    <h4>Analysis Failed</h4>
+                    <p>{scanResult.error}</p>
+                  </div>
                 </div>
               ) : (
                 <>
-                  {/* Risk Score */}
-                  <div className="risk-score-section">
-                    <div className="risk-score-header">
-                      <span className="risk-label">Risk Score</span>
-                      <span className="risk-value">{scanResult.score}/100</span>
-                    </div>
-                    <div className="risk-bar">
-                      <div 
-                        className="risk-fill" 
-                        style={{ 
-                          width: `${scanResult.score}%`,
-                          background: scanResult.score >= 60 ? '#ef4444' : scanResult.score >= 30 ? '#f59e0b' : '#10b981'
-                        }}
-                      ></div>
-                    </div>
-                    <div className="risk-advice">{scanResult.advice}</div>
-                  </div>
-
-                  {/* Gemini AI Highlights */}
-                  {scanResult.explanation && (
-                    <div className="gemini-highlights-section">
-                      <div className="gemini-header">
-                        <h4>🤖 AI Detection Results</h4>
-                      </div>
-                      <div className="gemini-stats">
-                        {extractGeminiLikelihood(scanResult.explanation) && (
-                          <div className="gemini-stat">
-                            <span className="gemini-stat-label">AI Confidence</span>
-                            <span className="gemini-stat-value">
-                              {extractGeminiLikelihood(scanResult.explanation)}%
-                            </span>
-                            <div className="gemini-stat-bar">
-                              <div 
-                                className="gemini-stat-fill"
-                                style={{ 
-                                  width: `${extractGeminiLikelihood(scanResult.explanation)}%`,
-                                  background: extractGeminiLikelihood(scanResult.explanation) >= 70 ? '#ef4444' : 
-                                           extractGeminiLikelihood(scanResult.explanation) >= 40 ? '#f59e0b' : '#10b981'
-                                }}
-                              ></div>
-                            </div>
-                          </div>
-                        )}
-                        {extractSuspectedBrand(scanResult.explanation) && (
-                          <div className="gemini-stat">
-                            <span className="gemini-stat-label">Detected Brand</span>
-                            <span className="suspected-brand-tag">
-                              {extractSuspectedBrand(scanResult.explanation)}
+                  {/* Combined Results Display */}
+                  {scanResult.analysisType === 'combined' && (
+                    <div className="combined-results">
+                      <div className="service-results-grid">
+                        {/* ML Results */}
+                        <div className="service-result ml-result">
+                          <div className="service-header">
+                            <Cpu size={20} />
+                            <h4>ML Analysis (Phishpedia)</h4>
+                            <span className={`status-badge ${scanResult.data.ml.status}`}>
+                              {scanResult.data.ml.status}
                             </span>
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* AI Explanation */}
-                  {scanResult.explanation && (
-                    <div className="explanation-section">
-                      <h4>📝 Detailed Analysis</h4>
-                      <p>{extractExplanation(scanResult.explanation)}</p>
-                    </div>
-                  )}
-
-                  {/* Detection Breakdown */}
-                  {scanResult.breakdown && (
-                    <div className="breakdown-section">
-                      <h4>📊 Detection Breakdown</h4>
-                      <div className="breakdown-grid">
-                        {Object.entries(scanResult.breakdown).map(([key, value]) => (
-                          <div key={key} className="breakdown-item">
-                            <span className="breakdown-label">{key.replace('_', ' ').toUpperCase()}</span>
-                            <span className="breakdown-value">{value}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Detailed Signals */}
-                  {scanResult.signals && (
-                    <div className="signals-section">
-                      <h4>🔍 Detection Signals</h4>
-                      
-                      {/* Heuristics */}
-                      {scanResult.signals.heuristics && (
-                        <div className="signal-group">
-                          <h5>Heuristic Analysis</h5>
-                          <div className="signal-details">
-                            <div className="signal-item">
-                              <span>Risk Score:</span>
-                              <span>{scanResult.signals.heuristics.risk}/100</span>
-                            </div>
-                            <div className="signal-item">
-                              <span>Domain:</span>
-                              <span>{scanResult.signals.heuristics.host}</span>
-                            </div>
-                            {scanResult.signals.heuristics.signals && Object.keys(scanResult.signals.heuristics.signals).length > 0 && (
-                              <div className="signal-flags">
-                                <span>Flags:</span>
-                                <div className="flags-list">
-                                  {Object.entries(scanResult.signals.heuristics.signals).map(([flag, value]) => 
-                                    value && <span key={flag} className="flag">{flag.replace('_', ' ')}</span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Vision Analysis */}
-                      {scanResult.signals.vision && (
-                        <div className="signal-group">
-                          <h5>Visual Analysis</h5>
-                          <div className="signal-details">
-                            {scanResult.signals.vision.logos && scanResult.signals.vision.logos.length > 0 && (
-                              <div className="signal-item">
-                                <span>Detected Brands:</span>
-                                <div className="detected-brands">
-                                  {scanResult.signals.vision.logos.map((logo, index) => (
-                                    <span key={index} className="brand-tag">
-                                      {logo.description} ({(logo.score * 100).toFixed(1)}%)
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            {scanResult.signals.vision.text && (
-                              <div className="signal-item">
-                                <span>Extracted Text:</span>
-                                <span className="extracted-text">{scanResult.signals.vision.text.substring(0, 200)}...</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Gemini Analysis */}
-                      {scanResult.signals.gemini && (
-                        <div className="signal-group">
-                          <h5>AI Analysis</h5>
-                          <div className="signal-details">
-                            <div className="signal-item">
-                              <span>Likelihood:</span>
-                              <span>{scanResult.signals.gemini.likelihood}%</span>
-                            </div>
-                            {/* Show suspected brand from either the main field or parsed explanation */}
-                            {(scanResult.signals.gemini.suspected_brand || 
-                              (scanResult.explanation && extractSuspectedBrand(scanResult.explanation))) && (
-                              <div className="signal-item">
-                                <span>Suspected Brand:</span>
-                                <span className="brand-tag">
-                                  {scanResult.signals.gemini.suspected_brand || 
-                                   extractSuspectedBrand(scanResult.explanation)}
+                          {scanResult.data.ml.status === 'completed' && scanResult.data.ml.data ? (
+                            <div className="service-details">
+                              <div className="detail-item">
+                                <span className="label">Result:</span>
+                                <span className={`value ${scanResult.data.ml.data.result === 'Phishing' ? 'threat' : 'safe'}`}>
+                                  {scanResult.data.ml.data.result === 'Phishing' ? 'Clone Detected' : 
+                                   scanResult.data.ml.data.result === 'Benign' ? 'Clean' : 
+                                   scanResult.data.ml.data.result}
                                 </span>
                               </div>
+                              <div className="detail-item">
+                                <span className="label">Brand:</span>
+                                <span className="value">{scanResult.data.ml.data.matched_brand || 'Unknown'}</span>
+                              </div>
+                              <div className="detail-item">
+                                <span className="label">Confidence:</span>
+                                <span className="value">{Math.round(scanResult.data.ml.data.confidence * 100)}%</span>
+                              </div>
+                              {scanResult.data.ml.data.correct_domain && scanResult.data.ml.data.correct_domain !== 'unknown' && (
+                                <div className="detail-item">
+                                  <span className="label">Legitimate Domain:</span>
+                                  <span className="value">{scanResult.data.ml.data.correct_domain}</span>
+                                </div>
+                              )}
+                              {scanResult.data.ml.data.detection_time && (
+                                <div className="detail-item">
+                                  <span className="label">Detection Time:</span>
+                                  <span className="value">{scanResult.data.ml.data.detection_time}s</span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="service-error">
+                              <p>❌ {scanResult.data.ml.error || 'Service failed'}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* AI Results */}
+                        <div className="service-result ai-result">
+                          <div className="service-header">
+                            <Brain size={20} />
+                            <h4>AI Analysis (Gemini)</h4>
+                            <span className={`status-badge ${scanResult.data.ai.status}`}>
+                              {scanResult.data.ai.status}
+                            </span>
+                          </div>
+                          {scanResult.data.ai.status === 'completed' && scanResult.data.ai.data ? (
+                            <div className="service-details">
+                              <div className="detail-item">
+                                <span className="label">Decision:</span>
+                                <span className={`value ${scanResult.data.ai.data.decision === 'clone' ? 'threat' : scanResult.data.ai.data.decision === 'suspicious' ? 'warning' : 'safe'}`}>
+                                  {scanResult.data.ai.data.decision || 'Unknown'}
+                                </span>
+                              </div>
+                              <div className="detail-item">
+                                <span className="label">Risk Score:</span>
+                                <span className="value">{scanResult.data.ai.data.score || 0}/100</span>
+                              </div>
+                              {scanResult.data.ai.data.signals?.brand_mismatch?.brand && (
+                                <div className="detail-item">
+                                  <span className="label">Detected Brand:</span>
+                                  <span className="value">{scanResult.data.ai.data.signals.brand_mismatch.brand}</span>
+                                </div>
+                              )}
+                              {scanResult.data.ai.data.advice && (
+                                <div className="detail-item full-width">
+                                  <span className="label">Recommendation:</span>
+                                  <span className="value advice">{scanResult.data.ai.data.advice}</span>
+                                </div>
+                              )}
+                              {scanResult.data.ai.data.explanation && (
+                                <div className="detail-item full-width">
+                                  <span className="label">AI Explanation:</span>
+                                  <span className="value explanation">{extractExplanation(scanResult.data.ai.data.explanation)}</span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="service-error">
+                              <p>❌ {scanResult.data.ai.error || 'Service failed'}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Single Service Results */}
+                  {scanResult.analysisType !== 'combined' && (
+                    <div className="single-result">
+                      {scanResult.analysisType === 'ml' && (
+                        <div className="ml-single-result">
+                          <div className="result-header">
+                            <Cpu size={24} />
+                            <h4>Phishpedia ML Analysis</h4>
+                          </div>
+                          <div className="result-details">
+                            <div className="detail-item">
+                              <span className="label">Result:</span>
+                              <span className={`value ${scanResult.data.result === 'Phishing' ? 'threat' : 'safe'}`}>
+                                {scanResult.data.result === 'Phishing' ? 'Clone Detected' : 
+                                 scanResult.data.result === 'Benign' ? 'Clean' : 
+                                 scanResult.data.result}
+                              </span>
+                            </div>
+                            <div className="detail-item">
+                              <span className="label">Brand:</span>
+                              <span className="value">{scanResult.data.matched_brand || 'Unknown'}</span>
+                            </div>
+                            <div className="detail-item">
+                              <span className="label">Confidence:</span>
+                              <span className="value">{Math.round(scanResult.data.confidence * 100)}%</span>
+                            </div>
+                            {scanResult.data.correct_domain && scanResult.data.correct_domain !== 'unknown' && (
+                              <div className="detail-item">
+                                <span className="label">Legitimate Domain:</span>
+                                <span className="value">{scanResult.data.correct_domain}</span>
+                              </div>
+                            )}
+                            {scanResult.data.detection_time && (
+                              <div className="detail-item">
+                                <span className="label">Detection Time:</span>
+                                <span className="value">{scanResult.data.detection_time}s</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {scanResult.analysisType === 'ai' && (
+                        <div className="ai-single-result">
+                          <div className="result-header">
+                            <Brain size={24} />
+                            <h4>Gemini AI Analysis</h4>
+                          </div>
+                          <div className="result-details">
+                            <div className="detail-item">
+                              <span className="label">Decision:</span>
+                              <span className={`value ${scanResult.data.decision === 'clone' ? 'threat' : scanResult.data.decision === 'suspicious' ? 'warning' : 'safe'}`}>
+                                {scanResult.data.decision || 'Unknown'}
+                              </span>
+                            </div>
+                            <div className="detail-item">
+                              <span className="label">Risk Score:</span>
+                              <span className="value">{scanResult.data.score || 0}/100</span>
+                            </div>
+                            {scanResult.data.signals?.brand_mismatch?.brand && (
+                              <div className="detail-item">
+                                <span className="label">Detected Brand:</span>
+                                <span className="value">{scanResult.data.signals.brand_mismatch.brand}</span>
+                              </div>
+                            )}
+                            {scanResult.data.advice && (
+                              <div className="detail-item full-width">
+                                <span className="label">Recommendation:</span>
+                                <span className="value advice">{scanResult.data.advice}</span>
+                              </div>
+                            )}
+                            {scanResult.data.explanation && (
+                              <div className="detail-item full-width">
+                                <span className="label">AI Explanation:</span>
+                                <span className="value explanation">{extractExplanation(scanResult.data.explanation)}</span>
+                              </div>
                             )}
                           </div>
                         </div>
                       )}
                     </div>
                   )}
+
+                  {/* Common Details */}
+                  <div className="scan-metadata">
+                    <div className="metadata-item">
+                      <span className="label">Target:</span>
+                      <span className="value">{scanResult.target}</span>
+                    </div>
+                    {scanResult.details.fileSize && (
+                      <div className="metadata-item">
+                        <span className="label">File Size:</span>
+                        <span className="value">{scanResult.details.fileSize}</span>
+                      </div>
+                    )}
+                    <div className="metadata-item">
+                      <span className="label">Last Checked:</span>
+                      <span className="value">{scanResult.details.lastChecked}</span>
+                    </div>
+                  </div>
                 </>
               )}
-              
-              <div className="result-details">
-                <div className="detail-item">
-                  <span className="detail-label">Target:</span>
-                  <span className="detail-value">{scanResult.target}</span>
-                </div>
-                {scanResult.type === 'screenshot' && scanResult.details.fileSize && (
-                  <div className="detail-item">
-                    <span className="detail-label">File Size:</span>
-                    <span className="detail-value">{scanResult.details.fileSize}</span>
-                  </div>
-                )}
-                <div className="detail-item">
-                  <span className="detail-label">Analysis Type:</span>
-                  <span className="detail-value">{scanResult.type === 'screenshot' ? 'Screenshot Analysis' : 'URL Analysis'}</span>
-                </div>
-              </div>
-              
-              <div className="scan-timestamp">
-                Last checked: {scanResult.details.lastChecked}
-              </div>
             </div>
           </div>
         </div>

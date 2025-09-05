@@ -2,23 +2,699 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Modern Design System */
+:root {
+  /* Color Palette */
+  --primary-50: #eff6ff;
+  --primary-100: #dbeafe;
+  --primary-500: #3b82f6;
+  --primary-600: #2563eb;
+  --primary-700: #1d4ed8;
+  --primary-900: #1e3a8a;
+  
+  --success-500: #10b981;
+  --warning-500: #f59e0b;
+  --danger-500: #ef4444;
+  
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+  
+  /* Dark Theme */
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+  
+  /* Spacing */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  
+  /* Border Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+/* Reset and base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+#root {
+  height: 100vh;
+  width: 100vw;
+}
+
 @layer base {
   body {
-    @apply bg-gray-900 text-white;
+    @apply bg-slate-900 text-slate-50 antialiased;
+    background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  }
+  
+  /* Scrollbar Styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-slate-800;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-600 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-500;
   }
 }
 
 @layer components {
-  .feature-card {
-    @apply relative overflow-hidden transition-all duration-300;
+  /* Modern Card Component */
+  .modern-card {
+    @apply bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 transition-all duration-300;
+    box-shadow: var(--shadow-lg);
   }
-
-  .feature-card::before {
+  
+  .modern-card:hover {
+    @apply border-blue-500/50 transform -translate-y-1;
+    box-shadow: var(--shadow-xl), 0 0 0 1px rgb(59 130 246 / 0.1);
+  }
+  
+  /* Button Variants */
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center gap-2;
+    box-shadow: var(--shadow-md);
+  }
+  
+  .btn-primary:hover {
+    @apply transform -translate-y-0.5;
+    box-shadow: var(--shadow-lg);
+  }
+  
+  .btn-secondary {
+    @apply bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center gap-2;
+  }
+  
+  .btn-outline {
+    @apply border border-slate-600 hover:border-blue-500 text-slate-300 hover:text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center gap-2;
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center gap-2;
+  }
+  
+  .btn-success {
+    @apply bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center gap-2;
+  }
+  
+  /* Input Styles */
+  .input-modern {
+    @apply w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200;
+  }
+  
+  .textarea-modern {
+    @apply w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none;
+  }
+  
+  /* Status Badges */
+  .badge-success {
+    @apply inline-flex items-center gap-1 px-3 py-1 bg-green-500/20 text-green-400 text-sm font-medium rounded-full border border-green-500/30;
+  }
+  
+  .badge-warning {
+    @apply inline-flex items-center gap-1 px-3 py-1 bg-yellow-500/20 text-yellow-400 text-sm font-medium rounded-full border border-yellow-500/30;
+  }
+  
+  .badge-danger {
+    @apply inline-flex items-center gap-1 px-3 py-1 bg-red-500/20 text-red-400 text-sm font-medium rounded-full border border-red-500/30;
+  }
+  
+  .badge-info {
+    @apply inline-flex items-center gap-1 px-3 py-1 bg-blue-500/20 text-blue-400 text-sm font-medium rounded-full border border-blue-500/30;
+  }
+  
+  /* Progress Bar */
+  .progress-bar {
+    @apply w-full bg-slate-700 rounded-full h-2 overflow-hidden;
+  }
+  
+  .progress-fill {
+    @apply h-full transition-all duration-500 ease-out rounded-full;
+  }
+  
+  /* Metric Cards */
+  .metric-card {
+    @apply modern-card text-center;
+  }
+  
+  .metric-value {
+    @apply text-3xl font-bold text-blue-400 mb-2;
+  }
+  
+  .metric-label {
+    @apply text-slate-400 text-sm font-medium uppercase tracking-wide;
+  }
+  
+  /* Animation Classes */
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.6s ease-out forwards;
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn 0.4s ease-out forwards;
+  }
+  
+  /* Loading States */
+  .loading-spinner {
+    @apply animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500;
+  }
+  
+  .loading-dots::after {
     content: '';
-    @apply absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 transition-opacity duration-300;
+    animation: dots 1.5s steps(5, end) infinite;
+  }
+  
+  /* Glassmorphism Effect */
+  .glass {
+    @apply bg-white/5 backdrop-blur-md border border-white/10;
+  }
+  
+  /* Gradient Text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent;
+  }
+}
+
+@layer utilities {
+  /* Custom Animations */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  @keyframes dots {
+    0%, 20% { content: ''; }
+    40% { content: '.'; }
+    60% { content: '..'; }
+    80%, 100% { content: '...'; }
+  }
+  
+  /* Responsive Text */
+  .text-responsive-xl {
+    @apply text-2xl md:text-3xl lg:text-4xl xl:text-5xl;
+  }
+  
+  .text-responsive-lg {
+    @apply text-xl md:text-2xl lg:text-3xl;
+  }
+  
+  /* Spacing Utilities */
+  .space-section {
+    @apply py-12 md:py-16 lg:py-20;
+  }
+  
+  .container-custom {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  /* Phishing Page Specific Styles */
+  .phishing-page {
+    @apply min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 space-y-8;
+  }
+  
+  .page-header {
+    @apply text-center py-8;
+  }
+  
+  .header-content {
+    @apply flex flex-col items-center space-y-4;
+  }
+  
+  .header-icon {
+    @apply p-4 bg-red-500/20 rounded-full border border-red-500/30;
+  }
+  
+  .header-text h1 {
+    @apply text-4xl md:text-5xl font-bold gradient-text mb-2;
+  }
+  
+  .header-text p {
+    @apply text-slate-400 text-lg max-w-2xl;
+  }
+  
+  /* Stats Grid */
+  .stats-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto;
+  }
+  
+  .stat-card {
+    @apply modern-card text-center p-6 hover:scale-105 transform transition-all duration-300;
+  }
+  
+  .stat-icon {
+    @apply w-12 h-12 mx-auto mb-4;
+  }
+  
+  .stat-value {
+    @apply text-3xl font-bold mb-2;
+  }
+  
+  .stat-label {
+    @apply text-slate-400 text-sm font-medium uppercase tracking-wide;
+  }
+  
+  /* Scanning Section */
+  .scanning-section {
+    @apply max-w-7xl mx-auto;
+  }
+  
+  .scan-grid {
+    @apply grid grid-cols-1 lg:grid-cols-2 gap-8;
+  }
+  
+  .scan-card {
+    @apply modern-card hover:scale-[1.02] transform transition-all duration-300;
+  }
+  
+  .scan-header {
+    @apply flex items-center space-x-3 mb-6 pb-4 border-b border-slate-700/50;
+  }
+  
+  .scan-icon {
+    @apply w-8 h-8 text-blue-400;
+  }
+  
+  .scan-header h3 {
+    @apply text-xl font-semibold text-slate-100;
+  }
+  
+  .scan-content {
+    @apply space-y-4;
+  }
+  
+  .scan-input, .scan-textarea {
+    @apply input-modern;
+  }
+  
+  .scan-textarea {
+    @apply textarea-modern min-h-32;
+  }
+  
+  .scan-button {
+    @apply btn-primary w-full justify-center;
+  }
+  
+  .scan-button:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+  
+  /* Results Section */
+  .results-section {
+    @apply max-w-4xl mx-auto;
+  }
+  
+  .results-card {
+    @apply modern-card bg-slate-800/70 border-slate-600/50;
+  }
+  
+  .results-header {
+    @apply flex items-center justify-between mb-6 pb-4 border-b border-slate-700/50;
+  }
+  
+  .results-header h3 {
+    @apply text-2xl font-semibold text-slate-100;
+  }
+  
+  .threat-badge {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-sm;
+  }
+  
+  .threat-safe {
+    @apply bg-green-500/20 text-green-400 border border-green-500/30;
+  }
+  
+  .threat-low {
+    @apply bg-green-500/20 text-green-400 border border-green-500/30;
+  }
+  
+  .threat-medium {
+    @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30;
+  }
+  
+  .threat-high {
+    @apply bg-red-500/20 text-red-400 border border-red-500/30;
+  }
+  
+  .threat-error {
+    @apply bg-red-500/20 text-red-400 border border-red-500/30;
+  }
+  
+  .results-content {
+    @apply space-y-6;
+  }
+  
+  .error-message {
+    @apply flex items-start space-x-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg;
+  }
+  
+  .error-icon {
+    @apply text-red-400 mt-1;
+  }
+  
+  .error-message h4 {
+    @apply text-red-400 font-semibold mb-1;
+  }
+  
+  .error-message p {
+    @apply text-slate-300;
+  }
+  
+  /* Analysis Section */
+  .analysis-section {
+    @apply space-y-6 p-6 bg-slate-800/30 rounded-lg border border-slate-700/30;
+  }
+  
+  .confidence-badge {
+    @apply inline-flex items-center px-3 py-1 bg-blue-500/20 text-blue-400 text-sm font-medium rounded-full border border-blue-500/30 mb-4;
+  }
+  
+  .risk-factors-container, .legitimacy-container, .insights-container, .recommendations-container, .technical-container {
+    @apply space-y-3;
+  }
+  
+  .risk-factors-container h5, .legitimacy-container h5, .insights-container h5, .recommendations-container h5, .technical-container h5 {
+    @apply text-lg font-semibold text-slate-200 flex items-center gap-2;
+  }
+  
+  .risk-factors {
+    @apply space-y-2;
+  }
+  
+  .risk-factor-item {
+    @apply flex items-start space-x-3 p-3 bg-red-500/5 border border-red-500/20 rounded-lg;
+  }
+  
+  .risk-factor-text {
+    @apply text-slate-300 text-sm leading-relaxed;
+  }
+  
+  .legitimacy-indicators {
+    @apply space-y-2;
+  }
+  
+  .legitimacy-indicator-item {
+    @apply flex items-start space-x-3 p-3 bg-green-500/5 border border-green-500/20 rounded-lg;
+  }
+  
+  .legitimacy-indicator-text {
+    @apply text-slate-300 text-sm leading-relaxed;
+  }
+  
+  .insights-content, .technical-content {
+    @apply p-4 bg-slate-700/30 rounded-lg border border-slate-600/30;
+  }
+  
+  .insights-content p, .technical-content p {
+    @apply text-slate-300 leading-relaxed;
+  }
+  
+  .recommendations {
+    @apply space-y-2;
+  }
+  
+  .recommendation-item {
+    @apply flex items-start space-x-3 p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg;
+  }
+  
+  .recommendation-text {
+    @apply text-slate-300 text-sm leading-relaxed;
+  }
+  
+  /* Result Details */
+  .result-details {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4;
+  }
+  
+  .detail-item {
+    @apply p-4 bg-slate-700/30 rounded-lg border border-slate-600/30;
+  }
+  
+  .detail-label {
+    @apply block text-slate-400 text-sm font-medium mb-1;
+  }
+  
+  .detail-value {
+    @apply text-slate-200 font-semibold;
+  }
+  
+  .scan-timestamp {
+    @apply text-center text-slate-400 text-sm pt-4 border-t border-slate-700/50;
+  }
+  
+  /* Threats Section */
+  .threats-section {
+    @apply max-w-4xl mx-auto;
+  }
+  
+  .threats-section h3 {
+    @apply text-2xl font-semibold text-slate-100 mb-6;
+  }
+  
+  .threats-list {
+    @apply space-y-3;
+  }
+  
+  .threat-item {
+    @apply modern-card flex items-center justify-between p-4 hover:scale-[1.01] transform transition-all duration-200;
+  }
+  
+  .threat-info {
+    @apply flex flex-col space-y-1;
+  }
+  
+  .threat-domain {
+    @apply text-slate-200 font-medium;
+  }
+  
+  .threat-time {
+    @apply text-slate-400 text-sm;
+  }
+  
+  .threat-level {
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full font-semibold text-sm;
+  }
+  
+  .threat-level.threat-high {
+    @apply bg-red-500/20 text-red-400 border border-red-500/30;
+  }
+  
+  .threat-level.threat-medium {
+    @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30;
+  }
+  
+  .threat-level.threat-low {
+    @apply bg-green-500/20 text-green-400 border border-green-500/30;
   }
 
-  .feature-card:hover::before {
-    @apply opacity-100;
+  /* Combined Results Styles */
+  .combined-results {
+    @apply space-y-6;
+  }
+  
+  .service-results-grid {
+    @apply grid md:grid-cols-2 gap-6;
+  }
+  
+  .service-result {
+    @apply modern-card bg-slate-800/50 border-slate-600/30 p-4;
+  }
+  
+  .service-header {
+    @apply flex items-center gap-3 mb-4 pb-3 border-b border-slate-700/50;
+  }
+  
+  .service-header h4 {
+    @apply text-lg font-semibold text-slate-100 flex-1;
+  }
+  
+  .status-badge {
+    @apply px-3 py-1 rounded-full text-xs font-medium uppercase;
+  }
+  
+  .status-badge.completed {
+    @apply bg-green-500/20 text-green-400 border border-green-500/30;
+  }
+  
+  .status-badge.failed {
+    @apply bg-red-500/20 text-red-400 border border-red-500/30;
+  }
+  
+  .status-badge.pending {
+    @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30;
+  }
+  
+  .service-details {
+    @apply space-y-3;
+  }
+  
+  .service-error {
+    @apply text-red-400 text-sm italic;
+  }
+  
+  .single-result .result-header {
+    @apply flex items-center gap-3 mb-6 pb-4 border-b border-slate-700/50;
+  }
+  
+  .single-result .result-header h4 {
+    @apply text-xl font-semibold text-slate-100;
+  }
+  
+  .single-result .result-details {
+    @apply space-y-4;
+  }
+  
+  .detail-item {
+    @apply flex justify-between items-start;
+  }
+  
+  .detail-item.full-width {
+    @apply flex-col space-y-2;
+  }
+  
+  .detail-item .label {
+    @apply text-slate-400 font-medium min-w-0 flex-shrink-0;
+  }
+  
+  .detail-item .value {
+    @apply text-slate-200 font-semibold text-right;
+  }
+  
+  .detail-item.full-width .value {
+    @apply text-left;
+  }
+  
+  .detail-item .value.threat {
+    @apply text-red-400;
+  }
+  
+  .detail-item .value.warning {
+    @apply text-yellow-400;
+  }
+  
+  .detail-item .value.safe {
+    @apply text-green-400;
+  }
+  
+  .detail-item .value.advice {
+    @apply text-slate-300 italic text-sm;
+  }
+  
+  .detail-item .value.explanation {
+    @apply text-slate-300 text-sm leading-relaxed;
+  }
+  
+  .scan-metadata {
+    @apply mt-6 pt-4 border-t border-slate-700/50 space-y-2;
+  }
+  
+  .metadata-item {
+    @apply flex justify-between items-center text-sm;
+  }
+  
+  .metadata-item .label {
+    @apply text-slate-400;
+  }
+  
+  .metadata-item .value {
+    @apply text-slate-300;
+  }
+  
+  .error-message {
+    @apply flex items-center gap-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg;
+  }
+  
+  .error-icon {
+    @apply text-red-400 flex-shrink-0;
+  }
+  
+  .error-message h4 {
+    @apply text-red-400 font-semibold mb-2;
+  }
+  
+  .error-message p {
+    @apply text-red-300;
+  }
+  
+  /* Animation Delays */
+  .animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out forwards;
+  }
+  
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, AlertTriangle, Bug, Copy, DollarSign, Menu, X, Lock, Eye, Users, Zap, TrendingUp, Globe, CheckCircle } from 'lucide-react';
+import { Shield, AlertTriangle, Bug, Copy, DollarSign, Menu, X, Lock, Eye, Users, Zap, TrendingUp, Globe, CheckCircle, LogOut, User } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import PhishingPage from './PhishingPage';
 import MalwarePage from './MalwarePage';
 import ClonePage from './ClonePage';
@@ -7,15 +9,56 @@ import ScamPage from './ScamPage';
 import './Home.css';
 const Home = () => {
   const [activeSection, setActiveSection] = useState('home');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Changed to false by default
   const [isLoading, setIsLoading] = useState(true);
   const [animationKey, setAnimationKey] = useState(0);
+  const { user, logout, isAuthenticated, checkAuthStatus } = useAuth();
+  const navigate = useNavigate();
+
+  // Check authentication when component mounts
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  // Handle feature activation after login
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const activateFeature = urlParams.get('feature') ||
+      (window.history.state && window.history.state.activateFeature);
+
+    if (activateFeature && isAuthenticated) {
+      setActiveSection(activateFeature);
+      // Clean up the URL
+      window.history.replaceState(null, '', '/Home');
+    }
+  }, [isAuthenticated]);
+
+  const handleFeatureAccess = (featureId) => {
+    if (!isAuthenticated) {
+      // Store the feature they wanted to access
+      sessionStorage.setItem('requestedFeature', featureId);
+      navigate('/Login', { state: { from: '/Home', requestedFeature: featureId } });
+      return;
+    }
+    // User is authenticated, allow access to feature
+    setActiveSection(featureId);
+    setSidebarOpen(false);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setActiveSection('home'); // Reset to home after logout
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   // Loading effect
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 1500);
+    }, 800); // Reduced loading time
     return () => clearTimeout(timer);
   }, []);
 
@@ -66,7 +109,7 @@ const Home = () => {
   ];
 
   const renderContent = () => {
-    switch(activeSection) {
+    switch (activeSection) {
       case 'phishing':
         return <PhishingPage key={animationKey} />;
       case 'malware':
@@ -80,16 +123,21 @@ const Home = () => {
           <div className="home-content">
             <div className="hero-section">
               <div className="hero-text animate-slide-in-left">
-                <h1>Advanced Cybersecurity Solutions</h1>
-                <p>Protect your digital assets with our comprehensive security platform. From phishing detection to malware analysis, we've got you covered.</p>
+                <h1>Spot the Fake</h1>
+                <p>Advanced cybersecurity solutions to protect your digital assets. Detect phishing, analyze malware, check for website clones, and identify scams with our comprehensive security suite.</p>
                 <div className="hero-buttons">
-                  <button className="btn-primary hover-scale">Get Started</button>
+                  <button
+                    className="btn-primary hover-scale"
+                    onClick={() => !isAuthenticated ? navigate('/Login') : handleFeatureAccess('phishing')}
+                  >
+                    Get Started
+                  </button>
                   <button className="btn-secondary hover-scale">Learn More</button>
                 </div>
               </div>
               <div className="hero-visual animate-slide-in-right">
                 <div className="security-shield">
-                  <Shield size={120} />
+                  <Shield size={80} />
                   <div className="shield-rings">
                     <div className="ring ring-1"></div>
                     <div className="ring ring-2"></div>
@@ -98,26 +146,14 @@ const Home = () => {
                 </div>
               </div>
             </div>
-            
-            <div className="stats-section animate-fade-in-up">
-              <div className="stats-grid">
-                {stats.map((stat, index) => (
-                  <div key={index} className="stat-item animate-count-up" style={{ animationDelay: `${index * 0.2}s` }}>
-                    <stat.icon className="stat-icon" />
-                    <div className="stat-number">{stat.number}</div>
-                    <div className="stat-label">{stat.label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
+
             <div className="features-section">
-              <h2 className="animate-slide-in-up">Why Choose Our Platform?</h2>
+              <h2 className="animate-slide-in-up">Security Features</h2>
               <div className="features-grid">
                 {features.map((feature, index) => (
-                  <div 
-                    key={index} 
-                    className="feature-item animate-fade-in-up hover-lift" 
+                  <div
+                    key={index}
+                    className="feature-item animate-fade-in-up hover-lift"
                     style={{ animationDelay: `${index * 0.15}s` }}
                   >
                     <div className={`feature-icon-wrapper bg-gradient-to-br ${feature.gradient}`}>
@@ -149,72 +185,113 @@ const Home = () => {
       <div className={`app ${isLoading ? 'loading' : ''}`}>
         {/* Sidebar */}
         <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          <div className="logo animate-pulse">
-            <Lock className="logo-icon" />
-            <span>CyberShield</span>
+          <div className="sidebar-header">
+            <div className="logo animate-pulse">
+              <Lock className="logo-icon" />
+              <span>CyberShield</span>
+            </div>
           </div>
-          <button 
-            className="sidebar-toggle desktop-hidden"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <X size={24} />
-          </button>
-        </div>
-        
-        <nav className="sidebar-nav">
-          <ul>
-            <li>
-              <button
-                className={`nav-item ${activeSection === 'home' ? 'active' : ''}`}
-                onClick={() => {
-                  setActiveSection('home');
-                  setSidebarOpen(false);
-                }}
-              >
-                <Shield className="nav-icon" />
-                <span>Home</span>
-              </button>
-            </li>
-            {sidebarItems.map((item) => (
-              <li key={item.id}>
+
+          <nav className="sidebar-nav">
+            <ul>
+              <li>
                 <button
-                  className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
+                  className={`nav-item ${activeSection === 'home' ? 'active' : ''}`}
                   onClick={() => {
-                    setActiveSection(item.id);
+                    setActiveSection('home');
                     setSidebarOpen(false);
                   }}
                 >
-                  <item.icon className="nav-icon" />
-                  <span>{item.name}</span>
+                  <Shield className="nav-icon" />
+                  <span>Home</span>
                 </button>
               </li>
-            ))}
-          </ul>
-        </nav>
-      </div>
+              {sidebarItems.map((item) => (
+                <li key={item.id}>
+                  <button
+                    className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
+                    onClick={() => handleFeatureAccess(item.id)}
+                  >
+                    <item.icon className="nav-icon" />
+                    <span>{item.name}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </div>
 
-      {/* Main Content */}
-      <div className="main-content">
-        <header className="header">
-          <button 
-            className="sidebar-toggle mobile-only"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu size={24} />
-          </button>
-          <div className="header-title">
-            <h1>Cybersecurity Dashboard</h1>
-          </div>
-        </header>
+        {/* Main Content */}
+        <div className="main-content">
+          <header className="header">
+            <div className="header-left">
+              <button
+                className="hamburger-menu"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                aria-label="Toggle menu"
+              >
+                <div className={`hamburger-lines ${sidebarOpen ? 'open' : ''}`}>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </button>
+              <div className="header-title">
+                <h1>Cybersecurity Dashboard</h1>
+              </div>
+            </div>
+            <div className="header-actions">
+              {isAuthenticated ? (
+                <>
+                  <div className="user-info">
+                    <User size={20} />
+                    <span>Welcome, {user?.fullName || 'User'}</span>
+                  </div>
+                  <button
+                    className="logout-btn"
+                    onClick={handleLogout}
+                    title="Logout"
+                  >
+                    <LogOut size={20} />
+                    <span>Logout</span>
+                  </button>
+                </>
+              ) : (
+                <div className="auth-buttons">
+                  <button
+                    className="login-btn"
+                    onClick={() => navigate('/Login')}
+                  >
+                    <User size={20} />
+                    <span>Login</span>
+                  </button>
+                  <button
+                    className="signup-btn"
+                    onClick={() => navigate('/Signup')}
+                  >
+                    <span>Sign Up</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </header>
 
-        <main className="content">
-          {renderContent()}
-        </main>
-      </div>
+          <main className="content">
+            {renderContent()}
+          </main>
+        </div>
 
-        {/* Overlay for mobile */}
-        {sidebarOpen && <div className="overlay" onClick={() => setSidebarOpen(false)}></div>}
+        {/* Overlay */}
+        {sidebarOpen && (
+          <div
+            className="overlay"
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              opacity: sidebarOpen ? 1 : 0,
+              visibility: sidebarOpen ? 'visible' : 'hidden'
+            }}
+          />
+        )}
       </div>
     </>
   );

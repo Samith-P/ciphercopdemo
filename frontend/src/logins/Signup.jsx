@@ -1,33 +1,35 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Link } from 'react-router-dom';
-
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import './Signup.css';
 
 const Signup = () => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   
-  const navigate = useNavigate();  
+  const navigate = useNavigate();
+  const { signup } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError('');
 
-    const response = await fetch('http://localhost:5001/signup', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ fullName, email, password }),
-    });
-    const data = await response.json();
-    if(response.status === 201){
-      navigate("/Home");
-    }
-    else{
-      alert("Invalid Credentials");
+    try {
+      const result = await signup(fullName, email, password);
+      
+      if (result.success) {
+        navigate('/Home');
+      } else {
+        setError(result.error || 'Signup failed');
+      }
+    } catch (error) {
+      setError('Signup failed. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -38,7 +40,20 @@ const Signup = () => {
       ))}
       <div className="signin">
         <div className="content">
-          <h2>Sign In</h2>
+          <h2>Sign Up</h2>
+          {error && (
+            <div className="error-message" style={{
+              color: '#ff4757',
+              textAlign: 'center',
+              marginBottom: '1rem',
+              padding: '0.5rem',
+              backgroundColor: 'rgba(255, 71, 87, 0.1)',
+              borderRadius: '4px',
+              border: '1px solid rgba(255, 71, 87, 0.3)'
+            }}>
+              {error}
+            </div>
+          )}
           <form className="form" onSubmit={handleSubmit}>
             <div className="inputBox">
               <input
@@ -46,6 +61,8 @@ const Signup = () => {
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                disabled={isLoading}
+                placeholder=" "
               />
               <i>Full Name</i>
             </div>
@@ -55,6 +72,8 @@ const Signup = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+                placeholder=" "
               />
               <i>Email</i>
             </div>
@@ -64,7 +83,9 @@ const Signup = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                 autoComplete="current-password"
+                autoComplete="new-password"
+                disabled={isLoading}
+                placeholder=" "
               />
               <i>Password</i>
             </div>
@@ -73,7 +94,11 @@ const Signup = () => {
               <Link to="/Login">Login</Link>
             </div>
             <div className="inputBox">
-              <input type="submit" value="Sign Up" />
+              <input 
+                type="submit" 
+                value={isLoading ? "Signing up..." : "Sign Up"} 
+                disabled={isLoading}
+              />
             </div>
           </form>
           

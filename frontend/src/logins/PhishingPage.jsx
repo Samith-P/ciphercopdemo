@@ -78,7 +78,7 @@ const PhishingPage = () => {
     setScanResult(null);
     
     try {
-      const response = await fetch('http://localhost:5001/api/phishing/analyze-email', {
+      const response = await fetch('http://localhost:5002/api/phishing/analyze-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -230,15 +230,25 @@ const PhishingPage = () => {
           <div className="results-card">
             <div className="results-header">
               <h3>Scan Results</h3>
-              <div className={`threat-badge threat-${scanResult.threat === 'error' ? 'high' : scanResult.threat}`}>
+              <div className={`threat-badge threat-${
+                scanResult.threat === 'error' ? 'high' : 
+                scanResult.aiAnalysis?.enabled && scanResult.aiAnalysis.riskScore ? 
+                  (scanResult.aiAnalysis.riskScore >= 70 ? 'high' : 
+                   scanResult.aiAnalysis.riskScore >= 40 ? 'medium' : 'low') :
+                scanResult.threat
+              }`}>
                 {scanResult.threat === 'error' ? (
                   <AlertTriangle size={16} />
-                ) : scanResult.threat === 'safe' || scanResult.threat === 'low' ? (
-                  <CheckCircle size={16} />
-                ) : (
-                  <AlertTriangle size={16} />
+                ) : (scanResult.aiAnalysis?.enabled && scanResult.aiAnalysis.riskScore ? 
+                    (scanResult.aiAnalysis.riskScore >= 70 ? <AlertTriangle size={16} /> :
+                     scanResult.aiAnalysis.riskScore >= 40 ? <AlertTriangle size={16} /> : <CheckCircle size={16} />) :
+                    (scanResult.threat === 'safe' || scanResult.threat === 'low' ? <CheckCircle size={16} /> : <AlertTriangle size={16} />)
                 )}
-                {scanResult.threat === 'error' ? 'ERROR' : scanResult.threat.toUpperCase()}
+                {scanResult.threat === 'error' ? 'ERROR' : 
+                 scanResult.aiAnalysis?.enabled && scanResult.aiAnalysis.riskScore ? 
+                   (scanResult.aiAnalysis.riskScore >= 70 ? 'HIGH' : 
+                    scanResult.aiAnalysis.riskScore >= 40 ? 'MEDIUM' : 'LOW') :
+                 scanResult.threat.toUpperCase()}
               </div>
             </div>
             <div className="results-content">
@@ -252,23 +262,6 @@ const PhishingPage = () => {
                 </div>
               ) : (
                 <>
-                  {scanResult.riskScore !== undefined && (
-                    <div className="risk-score-section">
-                      <div className="risk-label">Risk Score</div>
-                      <div className="risk-bar">
-                        <div 
-                          className="risk-fill" 
-                          style={{ 
-                            width: `${scanResult.riskScore}%`,
-                            background: scanResult.riskScore > 70 ? '#ef4444' : 
-                                       scanResult.riskScore > 40 ? '#f59e0b' : '#10b981'
-                          }}
-                        ></div>
-                      </div>
-                      <div className="risk-percentage">{scanResult.riskScore}/100</div>
-                    </div>
-                  )}
-                  
                   {scanResult.flags && scanResult.flags.length > 0 && (
                     <div className="flags-section">
                       <h4>Security Flags</h4>
@@ -346,7 +339,7 @@ const PhishingPage = () => {
                   {scanResult.aiAnalysis && (
                     <div className="ai-analysis-section">
                       <div className="ai-header">
-                        <h4>🤖 AI-Powered Analysis</h4>
+                        <h4>🤖 AI Security Analysis</h4>
                         {scanResult.aiAnalysis.enabled && scanResult.aiAnalysis.analysis?.confidence && (
                           <div className="ai-confidence-badge">
                             Confidence: {scanResult.aiAnalysis.analysis.confidence}%
@@ -356,45 +349,21 @@ const PhishingPage = () => {
                       
                       {scanResult.aiAnalysis.enabled ? (
                         <div className="ai-content">
-                          {/* Risk Score Comparison */}
-                          {scanResult.combinedRiskScore !== undefined && (
+                          {/* AI Risk Score */}
+                          {scanResult.aiAnalysis.riskScore && (
                             <div className="ai-risk-score-container">
-                              <h5>📊 Risk Assessment</h5>
-                              <div className="ai-risk-comparison">
-                                <div className="score-item traditional">
-                                  <div className="score-label">Traditional Analysis</div>
-                                  <div className="score-value">{scanResult.riskScore}/100</div>
+                              <h5>📊 AI Risk Assessment</h5>
+                              <div className="ai-risk-score">
+                                <div className="score-item ai">
+                                  <div className="score-label">AI Risk Score</div>
+                                  <div className="score-value">{scanResult.aiAnalysis.riskScore}/100</div>
                                   <div className="score-bar">
                                     <div 
-                                      className="score-fill traditional-fill" 
-                                      style={{ width: `${scanResult.riskScore}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                                
-                                {scanResult.aiAnalysis.riskScore && (
-                                  <div className="score-item ai">
-                                    <div className="score-label">AI Analysis</div>
-                                    <div className="score-value">{scanResult.aiAnalysis.riskScore}/100</div>
-                                    <div className="score-bar">
-                                      <div 
-                                        className="score-fill ai-fill" 
-                                        style={{ width: `${scanResult.aiAnalysis.riskScore}%` }}
-                                      ></div>
-                                    </div>
-                                  </div>
-                                )}
-                                
-                                <div className="score-item combined">
-                                  <div className="score-label">Combined Score</div>
-                                  <div className="score-value combined-value">{scanResult.combinedRiskScore}/100</div>
-                                  <div className="score-bar">
-                                    <div 
-                                      className="score-fill combined-fill" 
+                                      className="score-fill ai-fill" 
                                       style={{ 
-                                        width: `${scanResult.combinedRiskScore}%`,
-                                        background: scanResult.combinedRiskScore > 70 ? '#ef4444' : 
-                                                   scanResult.combinedRiskScore > 40 ? '#f59e0b' : '#10b981'
+                                        width: `${scanResult.aiAnalysis.riskScore}%`,
+                                        background: scanResult.aiAnalysis.riskScore > 70 ? '#ef4444' : 
+                                                   scanResult.aiAnalysis.riskScore > 40 ? '#f59e0b' : '#10b981'
                                       }}
                                     ></div>
                                   </div>

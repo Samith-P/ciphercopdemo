@@ -34,7 +34,7 @@ section::before {
   position: absolute;
   width: 100%;
   height: 100%;
-  background: linear-gradient(#000, #9728d3, #000);
+  background: linear-gradient(#000, #2836d3, #000);
   animation: animate 5s linear infinite;
 }
 
@@ -59,7 +59,7 @@ section span {
 }
 
 section span:hover {
-  background: #9728d3;
+  background: #2836d3;
   transition: 0s;
 }
 
@@ -73,12 +73,13 @@ section .signin {
   align-items: center;
   padding: 40px;
   border-radius: 4px;
-  box-shadow: 0 15px 35px 9728d3a(0, 0, 0, 0.9);
+  box-shadow: 0 15px 35px 2836d3a(0, 0, 0, 0.9);
 }
 
 section .signin .content {
   position: relative;
   width: 100%;
+  height: 20%;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -88,7 +89,7 @@ section .signin .content {
 
 section .signin .content h2 {
   font-size: 2em;
-  color: #9728d3;
+  color: #2836d3;
   text-transform: uppercase;
 }
 
@@ -125,13 +126,29 @@ section .signin .content .form .inputBox i {
   color: #aaa;
   transition: 0.5s;
   pointer-events: none;
+  font-size: 1em;
+  top: 0;
 }
 
-.signin .content .form .inputBox input:focus ~ i,
-.signin .content .form .inputBox input:valid ~ i {
+/* When input is focused or has content, move label up */
+section .signin .content .form .inputBox input:focus ~ i,
+section .signin .content .form .inputBox input:not(:placeholder-shown) ~ i {
   transform: translateY(-7.5px);
   font-size: 0.8em;
   color: #fff;
+  background: #333;
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+
+/* Alternative: When input has a value */
+section .signin .content .form .inputBox input:valid ~ i {
+  transform: translateY(-7.5px);
+  font-size: 0.8em;
+  color: #fff;
+  background: #333;
+  padding: 2px 6px;
+  border-radius: 2px;
 }
 
 .signin .content .form .links {
@@ -147,13 +164,13 @@ section .signin .content .form .inputBox i {
 }
 
 .signin .content .form .links a:nth-child(2) {
-  color: #9728d3;
+  color: #2836d3;
   font-weight: 600;
 }
 
 .signin .content .form .inputBox input[type="submit"] {
   padding: 10px;
-  background: #9728d3;
+  background: #2836d3;
   color: #000;
   font-weight: 600;
   font-size: 1.35em;

@@ -12,7 +12,7 @@ const app = express();
 
 app.use(
     cors({
-        origin: "http://localhost:5173", 
+        origin: ["http://localhost:5173", "http://localhost:5174"], 
         credentials: true, 
     })
 );
@@ -36,7 +36,7 @@ app.get('/calldb', protectRoute, (req, res) => {
 });
 
 // Phishing detection endpoint
-app.post('/api/phishing/analyze', async (req, res) => {
+app.post('/api/phishing/analyze', protectRoute, async (req, res) => {
     try {
         const { url } = req.body;
         
@@ -127,7 +127,7 @@ app.post('/api/phishing/analyze', async (req, res) => {
 });
 
 // Email content analysis endpoint
-app.post('/api/phishing/analyze-email', async (req, res) => {
+app.post('/api/phishing/analyze-email', protectRoute, async (req, res) => {
     try {
         const { content } = req.body;
         
