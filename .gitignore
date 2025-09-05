@@ -386,7 +386,7 @@ Temporary Items
 # TEMPORARY & UPLOAD FILES
 # =============================================================================
 # Uploads and temporary files
-uploads/
+# uploads/
 temp_uploads/
 temp_screenshot.png
 uploaded_*
