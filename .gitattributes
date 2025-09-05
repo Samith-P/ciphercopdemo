@@ -1,0 +1,12 @@
+# Git-Crypt Configuration for CipherCop 2025
+# This file specifies which files should be encrypted by git-crypt
+
+# Backend environment files
+backend/.env filter=git-crypt diff=git-crypt
+backend_py/clone-detection/combined-analysis/.env filter=git-crypt diff=git-crypt
+backend_py/clone-detection/gemini/.env filter=git-crypt diff=git-crypt
+backend_py/phishing-detection/.env filter=git-crypt diff=git-crypt
+
+# Additional sensitive files (add as needed)
+# **/*key*.json filter=git-crypt diff=git-crypt
+# **/*secret*.txt filter=git-crypt diff=git-crypt

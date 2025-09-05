@@ -27,11 +27,11 @@ goto menu
 :start_both
 echo.
 echo Starting AI Service (Port 5003)...
-start "AI Service - Gemini" cmd /c "cd /d %~dp0gemini && call .venv\Scripts\activate && python app.py"
+start "AI Service - Gemini" cmd /c "cd /d %~dp0gemini && .venv\Scripts\python.exe app.py"
 timeout /t 2 >nul
 
 echo Starting ML Service (Port 5000)...
-start "ML Service - Phishpedia" cmd /c "cd /d %~dp0phishpedia+detectron2\Phishpedia && call phishpedia_env\Scripts\activate && cd WEBtool && python app.py"
+start "ML Service - Phishpedia" cmd /c "cd /d %~dp0phishpedia+detectron2\Phishpedia && phishpedia_env\Scripts\python.exe WEBtool\app.py"
 
 echo.
 echo Both services are starting...
@@ -43,7 +43,7 @@ goto menu
 :start_ai
 echo.
 echo Starting AI Service (Port 5003)...
-start "AI Service - Gemini" cmd /c "cd /d %~dp0gemini && call .venv\Scripts\activate && python app.py"
+start "AI Service - Gemini" cmd /c "cd /d %~dp0gemini && .venv\Scripts\python.exe app.py"
 echo AI Service started.
 pause
 goto menu
@@ -51,7 +51,7 @@ goto menu
 :start_ml
 echo.
 echo Starting ML Service (Port 5000)...
-start "ML Service - Phishpedia" cmd /c "cd /d %~dp0phishpedia+detectron2\Phishpedia && call phishpedia_env\Scripts\activate && cd WEBtool && python app.py"
+start "ML Service - Phishpedia" cmd /c "cd /d %~dp0phishpedia+detectron2\Phishpedia && phishpedia_env\Scripts\python.exe WEBtool\app.py"
 echo ML Service started.
 pause
 goto menu
