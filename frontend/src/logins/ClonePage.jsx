@@ -85,12 +85,58 @@ const ClonePage = () => {
       ai: { status: 'pending', data: null, error: null }
     };
 
-    // Call ML Service (Phishpedia) first
+    // STEP 1: Call AI Service (Gemini) FIRST to take screenshot and analyze
+    try {
+      console.log('Calling AI Service first...');
+      
+      let aiResponse;
+      if (imageFile) {
+        // Case 1: User uploaded screenshot - send to AI
+        const formData = new FormData();
+        formData.append('screenshot', imageFile);
+        if (url && url.trim()) {
+          formData.append('url', url.trim());
+        }
+        
+        aiResponse = await fetch(API_ENDPOINTS.ai, {
+          method: 'POST',
+          body: formData
+        });
+      } else {
+        // Case 2: URL-only - AI will take screenshot and save it
+        aiResponse = await fetch(API_ENDPOINTS.ai, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+      }
+
+      if (aiResponse.ok) {
+        const rawData = await aiResponse.json();
+        console.log('AI Raw Response:', rawData);
+        results.ai.data = normalizeAiResponse(rawData);
+        results.ai.status = 'completed';
+        console.log('AI Service completed successfully');
+      } else {
+        const errorData = await aiResponse.json();
+        results.ai.error = errorData.error || `HTTP ${aiResponse.status}`;
+        results.ai.status = 'failed';
+      }
+    } catch (error) {
+      results.ai.error = error.message;
+      results.ai.status = 'failed';
+      console.log('AI Service failed:', error.message);
+    }
+
+    // STEP 2: Call ML Service (Phishpedia) SECOND
     try {
       console.log('Calling ML Service...');
       
       if (imageFile) {
-        // Step 1: Upload the image
+        // Case 1: User uploaded screenshot - use existing flow
+        console.log('Using user uploaded screenshot for ML...');
+        
+        // Step 1: Upload the user's image
         const uploadFormData = new FormData();
         uploadFormData.append('image', imageFile);
         
@@ -123,64 +169,82 @@ const ClonePage = () => {
           console.log('ML Raw Response:', rawData);
           results.ml.data = normalizeMlResponse(rawData);
           results.ml.status = 'completed';
-          console.log('ML Service completed successfully');
+          console.log('ML Service completed successfully with user screenshot');
         } else {
           const errorData = await detectResponse.json();
           results.ml.error = errorData.error || `HTTP ${detectResponse.status}`;
           results.ml.status = 'failed';
         }
+      } else if (results.ai.status === 'completed') {
+        // Case 2: URL-only - AI has taken screenshot, now use it for ML
+        console.log('AI completed successfully, now using AI screenshot for ML...');
+        
+        try {
+          // Fetch the screenshot saved by AI service
+          const screenshotResponse = await fetch('http://localhost:5003/get-screenshot', {
+            method: 'GET'
+          });
+          
+          if (screenshotResponse.ok) {
+            const screenshotBlob = await screenshotResponse.blob();
+            console.log('Retrieved AI screenshot, size:', screenshotBlob.size);
+            
+            // Step 1: Upload the AI-generated screenshot to ML service
+            const uploadFormData = new FormData();
+            uploadFormData.append('image', screenshotBlob, 'ai-screenshot.png');
+            
+            const uploadResponse = await fetch(API_ENDPOINTS.ml.upload, {
+              method: 'POST',
+              body: uploadFormData
+            });
+            
+            if (!uploadResponse.ok) {
+              throw new Error(`AI screenshot upload failed: HTTP ${uploadResponse.status}`);
+            }
+            
+            const uploadData = await uploadResponse.json();
+            if (!uploadData.success) {
+              throw new Error(uploadData.error || 'AI screenshot upload failed');
+            }
+            
+            // Step 2: Call detect with the uploaded AI screenshot URL
+            const detectResponse = await fetch(API_ENDPOINTS.ml.detect, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                url: url || '',
+                imageUrl: uploadData.imageUrl
+              })
+            });
+
+            if (detectResponse.ok) {
+              const rawData = await detectResponse.json();
+              console.log('ML Raw Response:', rawData);
+              results.ml.data = normalizeMlResponse(rawData);
+              results.ml.status = 'completed';
+              console.log('ML Service completed successfully with AI screenshot');
+            } else {
+              const errorData = await detectResponse.json();
+              results.ml.error = errorData.error || `HTTP ${detectResponse.status}`;
+              results.ml.status = 'failed';
+            }
+          } else {
+            throw new Error(`Failed to retrieve AI screenshot: HTTP ${screenshotResponse.status}`);
+          }
+        } catch (screenshotError) {
+          console.log('Failed to get AI screenshot:', screenshotError.message);
+          results.ml.error = `Failed to use AI screenshot: ${screenshotError.message}`;
+          results.ml.status = 'failed';
+        }
       } else {
-        // For URL-only analysis (ML service needs screenshot)
-        results.ml.error = 'Screenshot required for ML analysis';
+        // AI failed, so we can't get screenshot for ML
+        results.ml.error = 'AI service failed - no screenshot available for ML analysis';
         results.ml.status = 'failed';
       }
     } catch (error) {
       results.ml.error = error.message;
       results.ml.status = 'failed';
       console.log('ML Service failed:', error.message);
-    }
-
-    // Call AI Service (Gemini) second
-    try {
-      console.log('Calling AI Service...');
-      
-      let aiResponse;
-      if (imageFile) {
-        // For screenshot analysis
-        const formData = new FormData();
-        formData.append('screenshot', imageFile);
-        if (url && url.trim()) {
-          formData.append('url', url.trim());
-        }
-        
-        aiResponse = await fetch(API_ENDPOINTS.ai, {
-          method: 'POST',
-          body: formData
-        });
-      } else {
-        // For URL-only analysis
-        aiResponse = await fetch(API_ENDPOINTS.ai, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url })
-        });
-      }
-
-      if (aiResponse.ok) {
-        const rawData = await aiResponse.json();
-        console.log('AI Raw Response:', rawData);
-        results.ai.data = normalizeAiResponse(rawData);
-        results.ai.status = 'completed';
-        console.log('AI Service completed successfully');
-      } else {
-        const errorData = await aiResponse.json();
-        results.ai.error = errorData.error || `HTTP ${aiResponse.status}`;
-        results.ai.status = 'failed';
-      }
-    } catch (error) {
-      results.ai.error = error.message;
-      results.ai.status = 'failed';
-      console.log('AI Service failed:', error.message);
     }
 
     return results;
