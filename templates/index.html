@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email & SMS Notification System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Header -->
+            <div class="col-12 bg-primary text-white py-3 mb-4">
+                <div class="container">
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-bell me-2"></i>
+                        Email & SMS Notification System
+                    </h1>
+                    <small>Send emails and SMS notifications easily</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                <!-- Configuration Status -->
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-cog me-2"></i>
+                                Configuration Status
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-envelope me-2" id="email-status-icon"></i>
+                                        <span>Email Service: </span>
+                                        <span class="badge ms-2" id="email-status">Checking...</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-sms me-2" id="sms-status-icon"></i>
+                                        <span>SMS Service: </span>
+                                        <span class="badge ms-2" id="sms-status">Checking...</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-database me-2" id="redis-status-icon"></i>
+                                        <span>Redis Cache: </span>
+                                        <span class="badge ms-2" id="redis-status">Checking...</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-server me-2"></i>
+                                        <span>Email Mode: </span>
+                                        <span class="badge bg-info ms-2" id="email-mode">Checking...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Email Section -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-envelope me-2"></i>
+                                Email Notifications
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <!-- Simple Email -->
+                            <div class="mb-4">
+                                <h6 class="text-primary">
+                                    <i class="fas fa-paper-plane me-2"></i>
+                                    Send Simple Email
+                                </h6>
+                                <form id="email-form">
+                                    <div class="mb-3">
+                                        <label for="email-to" class="form-label">To Email:</label>
+                                        <input type="email" class="form-control" id="email-to" placeholder="recipient@example.com" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="email-subject" class="form-label">Subject:</label>
+                                        <input type="text" class="form-control" id="email-subject" placeholder="Enter subject" value="Test Email">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="email-message" class="form-label">Message:</label>
+                                        <textarea class="form-control" id="email-message" rows="3" placeholder="Enter your message">Hello! This is a test email from the notification system.</textarea>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="email-service" class="form-label">Email Service:</label>
+                                        <select class="form-select" id="email-service">
+                                            <option value="gmail">Gmail SMTP (Real Delivery)</option>
+                                            <option value="mailtrap">Mailtrap (Testing Only)</option>
+                                        </select>
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            <span id="service-info">Choose Gmail for real email delivery or Mailtrap for testing</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Gmail Setup Help -->
+                                    <div class="mb-3" id="gmail-help" style="display: none;">
+                                        <div class="alert alert-info">
+                                            <h6><i class="fas fa-question-circle me-2"></i>Gmail Setup Required</h6>
+                                            <p class="mb-2">To use Gmail, you need an App Password:</p>
+                                            <ol class="mb-2">
+                                                <li>Go to <a href="https://myaccount.google.com/security" target="_blank">Google Account Security</a></li>
+                                                <li>Enable 2-Factor Authentication</li>
+                                                <li>Generate App Password for "Mail"</li>
+                                                <li>Update .env: GMAIL_USER=your@gmail.com</li>
+                                                <li>Update .env: GMAIL_PASSWORD=your-app-password</li>
+                                            </ol>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="testGmailConnection()">
+                                                <i class="fas fa-plug me-1"></i>Test Gmail Connection
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <button type="submit" class="btn btn-info">
+                                        <i class="fas fa-paper-plane me-2"></i>
+                                        Send Email
+                                    </button>
+                                </form>
+                            </div>
+
+                            <hr>
+
+                            <!-- Email OTP -->
+                            <div>
+                                <h6 class="text-success">
+                                    <i class="fas fa-shield-alt me-2"></i>
+                                    Email OTP Verification
+                                </h6>
+                                <form id="email-otp-form">
+                                    <div class="mb-3">
+                                        <label for="email-otp-to" class="form-label">Email Address:</label>
+                                        <div class="input-group">
+                                            <input type="email" class="form-control" id="email-otp-to" placeholder="your@email.com" required>
+                                            <button type="button" class="btn btn-success" id="send-email-otp-btn">
+                                                <i class="fas fa-key me-2"></i>
+                                                Send OTP
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3" id="email-otp-verify-section" style="display: none;">
+                                        <label for="email-otp-code" class="form-label">Enter OTP:</label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="email-otp-code" placeholder="Enter 6-digit OTP" maxlength="6">
+                                            <button type="button" class="btn btn-primary" id="verify-email-otp-btn">
+                                                <i class="fas fa-check me-2"></i>
+                                                Verify
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SMS Section -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0">
+                                <i class="fas fa-sms me-2"></i>
+                                SMS Notifications
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <!-- SMS OTP -->
+                            <div>
+                                <h6 class="text-warning">
+                                    <i class="fas fa-mobile-alt me-2"></i>
+                                    SMS OTP Verification
+                                </h6>
+                                <form id="sms-otp-form">
+                                    <div class="mb-3">
+                                        <label for="sms-phone" class="form-label">Phone Number:</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">+91</span>
+                                            <input type="tel" class="form-control" id="sms-phone" placeholder="1234567890" pattern="[0-9]{10}" required>
+                                            <button type="button" class="btn btn-warning" id="send-sms-otp-btn">
+                                                <i class="fas fa-mobile-alt me-2"></i>
+                                                Send OTP
+                                            </button>
+                                        </div>
+                                        <div class="form-text">Enter 10-digit mobile number (India +91)</div>
+                                    </div>
+                                    <div class="mb-3" id="sms-otp-verify-section" style="display: none;">
+                                        <label for="sms-otp-code" class="form-label">Enter SMS OTP:</label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="sms-otp-code" placeholder="Enter 6-digit OTP" maxlength="6">
+                                            <button type="button" class="btn btn-primary" id="verify-sms-otp-btn">
+                                                <i class="fas fa-check me-2"></i>
+                                                Verify
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <hr>
+
+                            <!-- SMS Info -->
+                            <div class="alert alert-info">
+                                <h6><i class="fas fa-info-circle me-2"></i>SMS Service Info</h6>
+                                <ul class="mb-0">
+                                    <li>Uses Twilio Verify API</li>
+                                    <li>Supports international numbers</li>
+                                    <li>OTP valid for 10 minutes</li>
+                                    <li>Automatic retry and verification</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logs Section -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-list me-2"></i>
+                                Activity Logs
+                                <button class="btn btn-sm btn-outline-light float-end" id="clear-logs-btn">
+                                    <i class="fas fa-trash me-1"></i>Clear
+                                </button>
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="activity-logs" class="bg-dark text-light p-3 rounded" style="height: 200px; overflow-y: auto; font-family: monospace;">
+                                <div class="text-success">[INFO] Notification system initialized</div>
+                                <div class="text-info">[INFO] Checking service configurations...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Usage Instructions -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-dark text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-question-circle me-2"></i>
+                                Usage Instructions
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">Email Setup:</h6>
+                                    <ol>
+                                        <li>Configure Gmail App Password</li>
+                                        <li>Set EMAIL_USER and EMAIL_PASSWORD in .env</li>
+                                        <li>Test with simple email first</li>
+                                        <li>Use OTP for verification</li>
+                                    </ol>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="text-warning">SMS Setup:</h6>
+                                    <ol>
+                                        <li>Create Twilio account</li>
+                                        <li>Get Account SID and Auth Token</li>
+                                        <li>Create Verify Service</li>
+                                        <li>Set credentials in .env file</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
