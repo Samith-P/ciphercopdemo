@@ -4,6 +4,7 @@ import { connectDB } from "./src/lib/db.js";
 import cookieParser from "cookie-parser"
 import { protectRoute } from "./src/controller/tokengen.js";
 import { phishingDetector } from "./src/checks/phishing.js";
+import { TestResult } from "./src/models/TestResult.js";
 import cors from "cors";
 import dotenv from "dotenv";
 
@@ -37,6 +38,7 @@ app.get('/calldb', protectRoute, (req, res) => {
 
 // Phishing detection endpoint
 app.post('/api/phishing/analyze', protectRoute, async (req, res) => {
+    const startTime = Date.now();
     try {
         const { url } = req.body;
         
@@ -80,6 +82,42 @@ app.post('/api/phishing/analyze', protectRoute, async (req, res) => {
 
         // Perform phishing analysis
         const analysis = await phishingDetector.analyzeUrl(inputUrl);
+        const processingTime = Date.now() - startTime;
+        
+        // Save test result to MongoDB
+        const testResult = new TestResult({
+            userId: req.user._id,
+            testType: 'phishing',
+            inputData: {
+                url: inputUrl
+            },
+            result: {
+                isPhishing: analysis.isPhishing,
+                threatLevel: analysis.threatLevel || 'low',
+                riskScore: analysis.riskScore,
+                combinedRiskScore: analysis.combinedRiskScore || analysis.riskScore
+            },
+            details: {
+                domainAge: analysis.details.domainAge || 'Unknown',
+                registrar: analysis.details.registrar || 'Unknown',
+                country: analysis.details.country || 'Unknown',
+                reputation: analysis.details.reputation,
+                similarDomains: analysis.details.similarDomains,
+                expiryDate: analysis.details.expiryDate,
+                nameServers: analysis.details.nameServers,
+                status: analysis.details.status,
+                privacyProtection: analysis.details.privacyProtection,
+                lastChecked: analysis.details.lastChecked,
+                aiAnalysis: analysis.aiAnalysis,
+                whoisData: analysis.whoisData
+            },
+            flags: analysis.flags,
+            recommendations: analysis.aiRecommendations || [],
+            insights: analysis.aiInsights || 'No AI insights available',
+            processingTime
+        });
+
+        await testResult.save();
         
         // Format response for frontend
         const response = {
@@ -121,6 +159,200 @@ app.post('/api/phishing/analyze', protectRoute, async (req, res) => {
         console.error('Phishing analysis error:', error);
         res.status(500).json({ 
             error: 'Analysis failed: ' + error.message,
+            success: false 
+        });
+    }
+});
+
+// Malware/Sandbox test result storage endpoint
+app.post('/api/malware/store', protectRoute, async (req, res) => {
+    const startTime = Date.now();
+    try {
+        const { fileName, testType, result } = req.body;
+        
+        if (!fileName || !testType || !result) {
+            return res.status(400).json({ 
+                error: 'fileName, testType, and result are required',
+                success: false 
+            });
+        }
+
+        console.log(`Storing ${testType} test result for file: ${fileName}`);
+        
+        // Save test result to MongoDB
+        const testResult = new TestResult({
+            userId: req.user._id,
+            testType: testType, // 'sandbox' or 'malware'
+            inputData: {
+                fileName: fileName
+            },
+            result: {
+                isMalware: result.positives > 0 || result.verdict === 'malicious',
+                threatLevel: result.verdict || (result.positives > 10 ? 'high' : result.positives > 0 ? 'medium' : 'low'),
+                riskScore: result.threatScore || (result.positives / (result.total || 1)) * 100,
+            },
+            details: {
+                processingTime: Date.now() - startTime,
+                fileName: fileName,
+                scanDate: result.scanDate || new Date().toISOString().split('T')[0],
+                detections: result.detections || [],
+                analysisType: testType,
+                sandboxData: result.sandboxData || null,
+                positives: result.positives || 0,
+                total: result.total || 1,
+                verdict: result.verdict || 'unknown'
+            }
+        });
+        
+        await testResult.save();
+        
+        res.status(200).json({
+            success: true,
+            data: {
+                testId: testResult._id,
+                message: `${testType} test result stored successfully`
+            }
+        });
+        
+    } catch (error) {
+        console.error('Malware test storage error:', error);
+        res.status(500).json({ 
+            error: 'Failed to store malware test result: ' + error.message,
+            success: false 
+        });
+    }
+});
+
+
+
+
+// Get user's test history
+app.get('/api/tests/history', protectRoute, async (req, res) => {
+    try {
+        const { page = 1, limit = 10, testType } = req.query;
+        
+        const query = { userId: req.user._id };
+        if (testType && ['phishing', 'malware', 'clone', 'scam', 'sandbox'].includes(testType)) {
+            query.testType = testType;
+        }
+        
+        const tests = await TestResult.find(query)
+            .sort({ createdAt: -1 })
+            .limit(limit * 1)
+            .skip((page - 1) * limit)
+            .select('-details -__v'); // Exclude detailed data for performance
+        
+        const total = await TestResult.countDocuments(query);
+        
+        res.status(200).json({
+            success: true,
+            data: {
+                tests,
+                pagination: {
+                    current: page,
+                    total: Math.ceil(total / limit),
+                    count: tests.length,
+                    totalTests: total
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('Test history error:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch test history',
+            success: false 
+        });
+    }
+});
+
+// Get detailed test result
+app.get('/api/tests/:id', protectRoute, async (req, res) => {
+    try {
+        const test = await TestResult.findOne({ 
+            _id: req.params.id, 
+            userId: req.user._id 
+        });
+        
+        if (!test) {
+            return res.status(404).json({ 
+                error: 'Test not found',
+                success: false 
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            data: test
+        });
+        
+    } catch (error) {
+        console.error('Test detail error:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch test details',
+            success: false 
+        });
+    }
+});
+
+// Get user statistics
+app.get('/api/tests/stats', protectRoute, async (req, res) => {
+    try {
+        console.log('Stats endpoint called for user:', req.user._id);
+        
+        const stats = await TestResult.aggregate([
+            { $match: { userId: req.user._id } },
+            {
+                $group: {
+                    _id: '$testType',
+                    count: { $sum: 1 },
+                    threatsFound: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $or: [
+                                        { $eq: ['$result.isPhishing', true] },
+                                        { $eq: ['$result.isMalware', true] },
+                                        { $eq: ['$result.isClone', true] },
+                                        { $eq: ['$result.isScam', true] }
+                                    ]
+                                },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+                    avgRiskScore: { $avg: '$result.riskScore' },
+                    lastTest: { $max: '$createdAt' }
+                }
+            }
+        ]);
+        
+        console.log('Aggregation result:', stats);
+        
+        const totalTests = await TestResult.countDocuments({ userId: req.user._id });
+        console.log('Total tests:', totalTests);
+        
+        const summary = {
+            totalThreats: stats.reduce((sum, stat) => sum + stat.threatsFound, 0),
+            avgRiskScore: stats.length > 0 
+                ? stats.reduce((sum, stat) => sum + (stat.avgRiskScore || 0), 0) / stats.length 
+                : 0
+        };
+        
+        res.status(200).json({
+            success: true,
+            data: {
+                totalTests,
+                byType: stats,
+                summary
+            }
+        });
+        
+    } catch (error) {
+        console.error('Test stats error:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch test statistics: ' + error.message,
             success: false 
         });
     }
@@ -216,6 +448,79 @@ function analyzeEmailContent(content) {
         }
     };
 }
+
+// Malware test result storage endpoint
+app.post('/api/malware/store', protectRoute, async (req, res) => {
+    const startTime = Date.now();
+    try {
+        console.log('=== MALWARE STORAGE ENDPOINT ===');
+        console.log('Request body:', JSON.stringify(req.body, null, 2));
+        console.log('User from token:', req.user ? req.user._id : 'No user');
+        
+        const { fileName, testType, result } = req.body;
+        
+        console.log('Extracted values:');
+        console.log('fileName:', fileName);
+        console.log('testType:', testType);
+        console.log('result:', result);
+        
+        if (!fileName || !testType || !result) {
+            console.log('❌ Missing required fields');
+            return res.status(400).json({ 
+                error: 'fileName, testType, and result are required',
+                success: false 
+            });
+        }
+
+        console.log(`✅ Storing ${testType} malware test result for file: ${fileName}`);
+        
+        console.log('Creating TestResult document...');
+        // Save test result to MongoDB
+        const testResult = new TestResult({
+            userId: req.user._id,
+            testType: testType, // 'malware' or 'sandbox'
+            inputData: {
+                fileName: fileName
+            },
+            result: {
+                isMalware: result.positives > 0 || result.verdict === 'malicious',
+                threatLevel: result.verdict || (result.positives > 10 ? 'high' : result.positives > 0 ? 'medium' : 'low'),
+                riskScore: result.threatScore || (result.positives / (result.total || 1)) * 100,
+                positives: result.positives || 0,
+                total: result.total || 1,
+                verdict: result.verdict || 'unknown',
+                sandboxData: result.sandboxData || null
+            },
+            details: {
+                processingTime: Date.now() - startTime,
+                fileName: fileName,
+                scanDate: result.scanDate || new Date().toISOString().split('T')[0],
+                detections: result.detections || [],
+                analysisType: testType
+            }
+        });
+        
+        console.log('Saving to MongoDB...');
+        await testResult.save();
+        console.log('✅ Successfully saved to MongoDB');
+        
+        res.status(200).json({
+            success: true,
+            data: {
+                testId: testResult._id,
+                message: `${testType} test result stored successfully`
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Malware test storage error:', error);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ 
+            error: 'Failed to store malware test result: ' + error.message,
+            success: false 
+        });
+    }
+});
 
 const PORT = 5001; 
 
