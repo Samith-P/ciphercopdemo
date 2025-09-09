@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Mail, Link, Shield, Search, FileText, Activity, TrendingUp, Users, CheckCircle } from 'lucide-react';
+import MLPhishingDetection from '../components/MLPhishingDetection';
 
 const PhishingPage = () => {
   const [url, setUrl] = useState('');
@@ -161,8 +162,17 @@ const PhishingPage = () => {
           </div>
         ))}
       </div>
+
+      {/* ML-Based Phishing Detection */}
+      <div className="ml-detection-section animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
+        <MLPhishingDetection />
+      </div>
       {/* Scanning Tools */}
       <div className="scanning-section">
+        <div className="section-header">
+          <h2>Additional Phishing Analysis Tools</h2>
+          <p>Comprehensive analysis using multiple detection methods</p>
+        </div>
         <div className="scan-grid">
           {/* URL Scanner */}
           <div className="scan-card animate-slide-up" style={{ animationDelay: '0.2s' }}>

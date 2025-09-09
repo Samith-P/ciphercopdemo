@@ -1,5 +1,6 @@
 beautifulsoup4==4.12.3
 Flask==3.0.3
+flask-cors==4.0.0
 googlesearch_python==1.2.3
 numpy==1.26.4
 pandas==2.2.2
